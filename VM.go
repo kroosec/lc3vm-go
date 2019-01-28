@@ -3,7 +3,7 @@ package lc3
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
+	"math"
 )
 
 const (
@@ -45,21 +45,54 @@ func (v *VM) GetRegister(reg Register) uint16 {
 }
 
 func (v *VM) Load(program io.Reader) error {
-	content, err := ioutil.ReadAll(program)
+	// .ORIG / Start address.
+	if err := v.readStart(program); err != nil {
+		return err
+	}
+
+	return v.readProgram(program)
+}
+
+func (v *VM) readProgram(program io.Reader) error {
+	for {
+		value, err := readValue(program)
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return fmt.Errorf("Error reading the program: %v", err)
+		}
+
+		v.memory[v.registers[Register_PC]] = value
+		v.registers[Register_PC]++
+		if v.GetRegister(Register_PC) == math.MaxUint16 {
+			// XXX: Any restrictions on programs size ?
+			return fmt.Errorf("Program size beyond memory space.")
+		}
+	}
+}
+
+func (v *VM) readStart(program io.Reader) error {
+	// XXX: Any restrictions on Program Counter value ?
+	pc, err := readValue(program)
 	if err != nil {
-		return fmt.Errorf("Failed to load program: %v", err)
+		return fmt.Errorf("Failed to read orig value from program: %v", err)
 	}
 
-	// Program must contain at least .ORIG, and must be multiple of 2, as each instruction is 16 bits long.
-	if len(content) < 2 || len(content)%2 != 0 {
-		return fmt.Errorf("Program size in bytes not multiple of two.")
-	}
-
-	// XXX: Get first 2 bytes: Set the PC.
-
-	for i := 2; i < len(content); i += 2 {
-		// XXX: For each two bytes, load as instruction (swap16?) into memory.
-	}
-
+	v.registers[Register_PC] = pc
 	return nil
+}
+
+func readValue(program io.Reader) (uint16, error) {
+	buffer := make([]byte, 2)
+
+	n, err := program.Read(buffer)
+	if err != nil {
+		return 0, err
+	}
+	if n != 2 {
+		return 0, fmt.Errorf("Expected 2 bytes, got %d", n)
+	}
+
+	return (uint16(buffer[1]) << 8) + uint16(buffer[0]), nil
 }

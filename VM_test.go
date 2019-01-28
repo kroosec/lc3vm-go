@@ -21,7 +21,7 @@ func TestVM(t *testing.T) {
 		testCases := []string{
 			"",
 			"\x00",
-			"\x01\x02\x03",
+			"\x00\x30\x08",
 		}
 
 		for i, test := range testCases {
@@ -33,14 +33,28 @@ func TestVM(t *testing.T) {
 		}
 	})
 
-	t.Run("load a simple program and check PC", func(t *testing.T) {
+	t.Run("load a empty program and check PC", func(t *testing.T) {
 		vm := lc3.NewVM()
 		assertInitVM(t, vm)
 
+		var pc uint16 = 0x3000
 		program := strings.NewReader("\x00\x30")
 		err := vm.Load(program)
 		assertError(t, err, nil)
-		assertRegister(t, vm, lc3.Register_PC, 0x3000)
+
+		assertRegister(t, vm, lc3.Register_PC, pc)
+	})
+
+	t.Run("load a simple program and check memory", func(t *testing.T) {
+		vm := lc3.NewVM()
+		assertInitVM(t, vm)
+
+		var start uint16 = 0x3000
+		program := strings.NewReader("\x00\x30\x34\x12")
+		err := vm.Load(program)
+		assertError(t, err, nil)
+		assertRegister(t, vm, lc3.Register_PC, start+1)
+		assertMemory(t, vm, start, 0x1234)
 	})
 }
 
@@ -81,5 +95,14 @@ func assertRegister(t *testing.T, vm *lc3.VM, reg lc3.Register, want uint16) {
 	got := vm.GetRegister(reg)
 	if got != want {
 		t.Fatalf("expected register %d's value to be 0x%x, got 0x%x", reg, want, got)
+	}
+}
+
+func assertMemory(t *testing.T, vm *lc3.VM, address, want uint16) {
+	t.Helper()
+
+	got := vm.GetMemory(address)
+	if got != want {
+		t.Fatalf("expected memory at %x's to have 0x%x, got 0x%x", address, want, got)
 	}
 }
