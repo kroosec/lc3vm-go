@@ -3,7 +3,6 @@ package lc3
 import (
 	"fmt"
 	"io"
-	"math"
 )
 
 const (
@@ -32,10 +31,6 @@ type VM struct {
 	registers [Register_COUNT]uint16
 }
 
-func NewVM() *VM {
-	return &VM{}
-}
-
 func (v *VM) GetMemory(address uint16) uint16 {
 	return v.memory[address]
 }
@@ -44,16 +39,24 @@ func (v *VM) GetRegister(reg Register) uint16 {
 	return v.registers[reg]
 }
 
-func (v *VM) Load(program io.Reader) error {
+func NewVM(program io.Reader) (*VM, error) {
+	vm := &VM{}
+
 	// .ORIG / Start address.
-	if err := v.readStart(program); err != nil {
-		return err
+	if err := vm.readStart(program); err != nil {
+		return nil, err
 	}
 
-	return v.readProgram(program)
+	if err := vm.readProgram(program); err != nil {
+		return nil, err
+	}
+
+	return vm, nil
 }
 
 func (v *VM) readProgram(program io.Reader) error {
+	address := v.GetRegister(Register_PC)
+
 	for {
 		value, err := readValue(program)
 		if err != nil {
@@ -63,10 +66,10 @@ func (v *VM) readProgram(program io.Reader) error {
 			return fmt.Errorf("Error reading the program: %v", err)
 		}
 
-		v.memory[v.registers[Register_PC]] = value
-		v.registers[Register_PC]++
-		if v.GetRegister(Register_PC) == math.MaxUint16 {
-			// XXX: Any restrictions on programs size ?
+		v.memory[address] = value
+		address++
+		if address == 0 {
+			// XXX: Any further restrictions on programs size ?
 			return fmt.Errorf("Program size beyond memory space.")
 		}
 	}
@@ -84,15 +87,15 @@ func (v *VM) readStart(program io.Reader) error {
 }
 
 func readValue(program io.Reader) (uint16, error) {
-	buffer := make([]byte, 2)
+	var buffer [2]byte
 
-	n, err := program.Read(buffer)
+	n, err := program.Read(buffer[:])
 	if err != nil {
 		return 0, err
 	}
 	if n != 2 {
-		return 0, fmt.Errorf("Expected 2 bytes, got %d", n)
+		return 0, fmt.Errorf("Expected 2 bytes, got 1")
 	}
 
-	return (uint16(buffer[1]) << 8) + uint16(buffer[0]), nil
+	return (uint16(buffer[0]) << 8) + uint16(buffer[1]), nil
 }

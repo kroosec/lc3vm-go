@@ -2,6 +2,7 @@ package lc3_test
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -9,56 +10,62 @@ import (
 )
 
 func TestVM(t *testing.T) {
-	t.Run("create a new VM and check zeroed memory", func(t *testing.T) {
-		vm := lc3.NewVM()
-		assertInitVM(t, vm)
-	})
-
 	t.Run("try to load erroneous programs", func(t *testing.T) {
-		vm := lc3.NewVM()
-		assertInitVM(t, vm)
-
 		testCases := []string{
 			"",
-			"\x00",
-			"\x00\x30\x08",
+			"\x30",
+			"\x30\x00\x08",
 		}
 
 		for i, test := range testCases {
 			t.Run(fmt.Sprintf("test case #%d", i), func(t *testing.T) {
 				program := strings.NewReader(test)
-				err := vm.Load(program)
+				_, err := lc3.NewVM(program)
 				assertIsError(t, err)
 			})
 		}
 	})
 
 	t.Run("load a empty program and check PC", func(t *testing.T) {
-		vm := lc3.NewVM()
-		assertInitVM(t, vm)
-
 		var pc uint16 = 0x3000
-		program := strings.NewReader("\x00\x30")
-		err := vm.Load(program)
-		assertError(t, err, nil)
+		program := strings.NewReader("\x30\x00")
 
-		assertRegister(t, vm, lc3.Register_PC, pc)
+		vm, err := lc3.NewVM(program)
+		assertError(t, err, nil)
+		assertInitVM(t, vm, pc)
 	})
 
 	t.Run("load a simple program and check memory", func(t *testing.T) {
-		vm := lc3.NewVM()
-		assertInitVM(t, vm)
+		var start uint16 = 0x3000
+		program := strings.NewReader("\x30\x00\x12\x34")
+
+		vm, err := lc3.NewVM(program)
+		assertError(t, err, nil)
+		assertRegister(t, vm, lc3.Register_PC, start)
+		assertMemory(t, vm, start, 0x1234)
+	})
+
+	t.Run("load a hello-world.obj program", func(t *testing.T) {
+		f, closer := openTestfile(t, "testdata/hello-world.obj")
+		defer closer()
+
+		vm, err := lc3.NewVM(f)
+		assertError(t, err, nil)
 
 		var start uint16 = 0x3000
-		program := strings.NewReader("\x00\x30\x34\x12")
-		err := vm.Load(program)
-		assertError(t, err, nil)
-		assertRegister(t, vm, lc3.Register_PC, start+1)
-		assertMemory(t, vm, start, 0x1234)
+		values := []uint16{0xe002, 0xf022, 0xf025, 0x0048,
+			0x0065, 0x006c, 0x006c, 0x006f,
+			0x0020, 0x0057, 0x006f, 0x0072,
+			0x006c, 0x0064, 0x0021, 0x0000}
+
+		assertRegister(t, vm, lc3.Register_PC, start)
+		for i, value := range values {
+			assertMemory(t, vm, start+uint16(i), value)
+		}
 	})
 }
 
-func assertInitVM(t *testing.T, vm *lc3.VM) {
+func assertInitVM(t *testing.T, vm *lc3.VM, pc uint16) {
 	t.Helper()
 
 	for i := 0; i < lc3.MemorySize; i++ {
@@ -69,7 +76,11 @@ func assertInitVM(t *testing.T, vm *lc3.VM) {
 	}
 
 	for reg := lc3.Register_R0; reg < lc3.Register_COUNT; reg++ {
-		assertRegister(t, vm, reg, 0)
+		if reg == lc3.Register_PC {
+			assertRegister(t, vm, reg, pc)
+		} else {
+			assertRegister(t, vm, reg, 0)
+		}
 	}
 }
 
@@ -105,4 +116,13 @@ func assertMemory(t *testing.T, vm *lc3.VM, address, want uint16) {
 	if got != want {
 		t.Fatalf("expected memory at %x's to have 0x%x, got 0x%x", address, want, got)
 	}
+}
+
+func openTestfile(t *testing.T, name string) (*os.File, func() error) {
+	t.Helper()
+
+	f, err := os.Open(name)
+	assertError(t, err, nil)
+
+	return f, f.Close
 }
