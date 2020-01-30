@@ -26,6 +26,31 @@ const (
 	Register_COUNT
 )
 
+const (
+	Operation_BR = iota
+	Operation_ADD
+	Operation_LD
+	Operation_ST
+	Operation_JSR
+	Operation_AND
+	Operation_LDR
+	Operation_STR
+	Operation_RTI
+	Operation_NOT
+	Operation_LDI
+	Operation_STI
+	Operation_JMP
+	Operation_RES
+	Operation_LEA
+	Operation_TRAP
+)
+
+const (
+	Flag_P = uint16(1 << 0)
+	Flag_Z = uint16(1 << 1)
+	Flag_N = uint16(1 << 2)
+)
+
 type VM struct {
 	memory    [MemorySize]uint16
 	registers [Register_COUNT]uint16
@@ -51,7 +76,48 @@ func NewVM(program io.Reader) (*VM, error) {
 		return nil, err
 	}
 
+	vm.registers[Register_COND] = Flag_Z
+
 	return vm, nil
+}
+
+func (v *VM) Step() error {
+	if err := v.execInstruction(); err != nil {
+		// XXX: Do not increment on error ?
+		return err
+	}
+
+	v.incrementRegister(Register_PC, 1)
+	return nil
+}
+
+func (v *VM) execInstruction() (err error) {
+	inst := v.memory[v.GetRegister(Register_PC)]
+	op := uint8(inst & 0xf000)
+
+	switch op {
+	case Operation_BR:
+		err = v.execBreak(inst)
+	default:
+		err = fmt.Errorf("Operation %x not implemented", op)
+	}
+
+	return err
+}
+
+func (v *VM) execBreak(inst uint16) error {
+	offset := signExtend(inst&0x1ff, 9)
+	flags := (inst >> 9) & 0x7
+
+	if v.registers[Register_COND]&flags != 0 {
+		v.incrementRegister(Register_PC, offset)
+	}
+
+	return nil
+}
+
+func (v *VM) incrementRegister(reg Register, value uint16) {
+	v.registers[reg] += value
 }
 
 func (v *VM) readProgram(program io.Reader) error {
@@ -98,4 +164,11 @@ func readValue(program io.Reader) (uint16, error) {
 	}
 
 	return (uint16(buffer[0]) << 8) + uint16(buffer[1]), nil
+}
+
+func signExtend(value uint16, pos uint8) uint16 {
+	if (value>>(pos-1))&1 != 0 {
+		value |= (0xFFFF << pos)
+	}
+	return value
 }

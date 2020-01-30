@@ -63,6 +63,47 @@ func TestVM(t *testing.T) {
 			assertMemory(t, vm, start+uint16(i), value)
 		}
 	})
+
+	t.Run("Exec a simple NOP program", func(t *testing.T) {
+		program := strings.NewReader("\x30\x00\x00\x00")
+
+		vm, err := lc3.NewVM(program)
+		assertError(t, err, nil)
+
+		err = vm.Step()
+		assertError(t, err, nil)
+		assertRegister(t, vm, lc3.Register_PC, 0x3001)
+	})
+
+	t.Run("Test BR instructions", func(t *testing.T) {
+		testCases := []struct {
+			instruction string
+			pc          uint16
+		}{
+			{"\x01\x00", 0x3001}, // NOP
+
+			// Only z flag is set at the start.
+			{"\x02\x12", 0x3001}, // BRp x3001
+			{"\x04\x12", 0x3013}, // BRz x3013
+			{"\x06\x07", 0x3008}, // BRzp x3008
+
+			// Negative offset
+			{"\x05\x02", 0x2f03}, // BRz x2f03
+			{"\x09\x33", 0x3001}, // BRn x2f34
+		}
+
+		for _, test := range testCases {
+			program := strings.NewReader("\x30\x00" + test.instruction)
+
+			vm, err := lc3.NewVM(program)
+			assertError(t, err, nil)
+
+			err = vm.Step()
+			assertError(t, err, nil)
+			assertRegister(t, vm, lc3.Register_PC, test.pc)
+		}
+
+	})
 }
 
 func assertInitVM(t *testing.T, vm *lc3.VM, pc uint16) {
@@ -78,6 +119,8 @@ func assertInitVM(t *testing.T, vm *lc3.VM, pc uint16) {
 	for reg := lc3.Register_R0; reg < lc3.Register_COUNT; reg++ {
 		if reg == lc3.Register_PC {
 			assertRegister(t, vm, reg, pc)
+		} else if reg == lc3.Register_COND {
+			assertRegister(t, vm, reg, lc3.Flag_Z)
 		} else {
 			assertRegister(t, vm, reg, 0)
 		}
