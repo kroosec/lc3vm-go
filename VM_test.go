@@ -215,6 +215,34 @@ func TestVM(t *testing.T) {
 		}
 
 	})
+
+	t.Run("test ADD instruction", func(t *testing.T) {
+		testCases := []struct {
+			instruction string
+			reg         lc3.Register
+			value       uint16
+			flag        uint16
+		}{
+			{"\x10\x00", lc3.Register_R0, 0x0000, lc3.Flag_Z}, // ADD R0, R0, R0
+			{"\x10\x20", lc3.Register_R0, 0x0000, lc3.Flag_Z}, // ADD R0, R0, #0
+			{"\x16\x25", lc3.Register_R3, 0x0005, lc3.Flag_P}, // ADD R3, R2, #5
+			{"\x1B\x35", lc3.Register_R5, 0xfff5, lc3.Flag_N}, // ADD R5, R4, #-11
+		}
+
+		for _, test := range testCases {
+			program := strings.NewReader("\x30\x00" + test.instruction)
+
+			vm, err := lc3.NewVM(program, nil)
+			assertError(t, err, nil)
+
+			err = vm.Step()
+			assertError(t, err, nil)
+
+			assertRegister(t, vm, test.reg, test.value)
+			assertRegister(t, vm, lc3.Register_COND, test.flag)
+		}
+
+	})
 }
 
 func assertInitVM(t *testing.T, vm *lc3.VM, pc uint16) {

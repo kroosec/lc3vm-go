@@ -123,6 +123,8 @@ func (v *VM) execInstruction() (err error) {
 	op := uint8((inst & 0xf000) >> 12)
 
 	switch op {
+	case Operation_ADD:
+		v.execAdd(inst)
 	case Operation_BR:
 		v.execBreak(inst)
 	case Operation_NOT:
@@ -154,14 +156,31 @@ func (v *VM) setRegister(reg Register, value uint16) {
 	v.registers[reg] = value
 }
 
+func (v *VM) execAdd(inst uint16) {
+	destination := Register((inst >> 9) & 0x7)
+	source1 := Register((inst >> 6) & 0x7)
+
+	var value uint16
+	if inst&0x32 == 0 {
+		source2 := Register(inst & 0x7)
+
+		value = v.GetRegister(source2)
+	} else {
+		value = signExtend(inst&0x1f, 5)
+	}
+
+	v.setRegister(destination, v.GetRegister(source1)+value)
+	v.updateFlags(destination)
+}
+
 func (v *VM) execNot(inst uint16) {
 	// XXX: Check trailing 1's ?
-	dr := Register((inst >> 9) & 0x7)
-	sr := Register((inst >> 6) & 0x7)
-	value := v.GetRegister(sr) | 0xffff
+	destination := Register((inst >> 9) & 0x7)
+	source := Register((inst >> 6) & 0x7)
+	value := v.GetRegister(source) | 0xffff
 
-	v.setRegister(dr, value)
-	v.updateFlags(dr)
+	v.setRegister(destination, value)
+	v.updateFlags(destination)
 }
 
 func (v *VM) execTrap(inst uint16) {
