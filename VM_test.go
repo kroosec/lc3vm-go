@@ -1,6 +1,7 @@
 package lc3_test
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"strings"
@@ -20,7 +21,7 @@ func TestVM(t *testing.T) {
 		for i, test := range testCases {
 			t.Run(fmt.Sprintf("test case #%d", i), func(t *testing.T) {
 				program := strings.NewReader(test)
-				_, err := lc3.NewVM(program)
+				_, err := lc3.NewVM(program, nil)
 				assertIsError(t, err)
 			})
 		}
@@ -30,7 +31,7 @@ func TestVM(t *testing.T) {
 		var pc uint16 = 0x3000
 		program := strings.NewReader("\x30\x00")
 
-		vm, err := lc3.NewVM(program)
+		vm, err := lc3.NewVM(program, nil)
 		assertError(t, err, nil)
 		assertInitVM(t, vm, pc)
 	})
@@ -39,35 +40,16 @@ func TestVM(t *testing.T) {
 		var start uint16 = 0x3000
 		program := strings.NewReader("\x30\x00\x12\x34")
 
-		vm, err := lc3.NewVM(program)
+		vm, err := lc3.NewVM(program, nil)
 		assertError(t, err, nil)
 		assertRegister(t, vm, lc3.Register_PC, start)
 		assertMemory(t, vm, start, 0x1234)
 	})
 
-	t.Run("load a hello-world.obj program", func(t *testing.T) {
-		f, closer := openTestfile(t, "testdata/hello-world.obj")
-		defer closer()
-
-		vm, err := lc3.NewVM(f)
-		assertError(t, err, nil)
-
-		var start uint16 = 0x3000
-		values := []uint16{0xe002, 0xf022, 0xf025, 0x0048,
-			0x0065, 0x006c, 0x006c, 0x006f,
-			0x0020, 0x0057, 0x006f, 0x0072,
-			0x006c, 0x0064, 0x0021, 0x0000}
-
-		assertRegister(t, vm, lc3.Register_PC, start)
-		for i, value := range values {
-			assertMemory(t, vm, start+uint16(i), value)
-		}
-	})
-
 	t.Run("exec a simple NOP program", func(t *testing.T) {
 		program := strings.NewReader("\x30\x00\x00\x00")
 
-		vm, err := lc3.NewVM(program)
+		vm, err := lc3.NewVM(program, nil)
 		assertError(t, err, nil)
 
 		err = vm.Step()
@@ -95,7 +77,7 @@ func TestVM(t *testing.T) {
 		for _, test := range testCases {
 			program := strings.NewReader("\x30\x00" + test.instruction)
 
-			vm, err := lc3.NewVM(program)
+			vm, err := lc3.NewVM(program, nil)
 			assertError(t, err, nil)
 
 			err = vm.Step()
@@ -121,7 +103,7 @@ func TestVM(t *testing.T) {
 			var pc uint16 = 0x3000
 			program := strings.NewReader("\x30\x00" + test.instruction)
 
-			vm, err := lc3.NewVM(program)
+			vm, err := lc3.NewVM(program, nil)
 			assertError(t, err, nil)
 
 			err = vm.Step()
@@ -133,6 +115,60 @@ func TestVM(t *testing.T) {
 		}
 
 	})
+
+	t.Run("test PUTS trap", func(t *testing.T) {
+		program := strings.NewReader("\x30\x00\xE0\x01\xf0\x22\x00\x41\x00\x00")
+
+		output := bytes.NewBuffer([]byte{})
+		vm, err := lc3.NewVM(program, output)
+		assertError(t, err, nil)
+
+		// LEA R0, x3002
+		err = vm.Step()
+		assertError(t, err, nil)
+
+		// PUTS (R0 == x3002 == "H\0")
+		err = vm.Step()
+		assertError(t, err, nil)
+		assertRegister(t, vm, lc3.Register_PC, 0x3002)
+
+		assertString(t, "A", output.String())
+	})
+
+	t.Run("execute hello-world.obj program", func(t *testing.T) {
+		f, closer := openTestfile(t, "testdata/hello-world.obj")
+		defer closer()
+
+		output := bytes.NewBuffer([]byte{})
+		vm, err := lc3.NewVM(f, output)
+		assertError(t, err, nil)
+
+		var start uint16 = 0x3000
+		values := []uint16{0xe002, 0xf022, 0xf025, 0x0048,
+			0x0065, 0x006c, 0x006c, 0x006f,
+			0x0020, 0x0057, 0x006f, 0x0072,
+			0x006c, 0x0064, 0x0021, 0x0000}
+		assertRegister(t, vm, lc3.Register_PC, start)
+		for i, value := range values {
+			assertMemory(t, vm, start+uint16(i), value)
+		}
+
+		// LEA R0, HELLO_STR
+		err = vm.Step()
+		assertError(t, err, nil)
+		assertRegister(t, vm, lc3.Register_PC, start+1)
+		assertRegister(t, vm, lc3.Register_R0, 0x3003)
+		assertRegister(t, vm, lc3.Register_COND, lc3.Flag_P)
+
+		// PUTS
+		err = vm.Step()
+		assertError(t, err, nil)
+		assertRegister(t, vm, lc3.Register_PC, start+2)
+		assertString(t, "Hello World!", output.String())
+
+		// XXX: HALT
+	})
+
 }
 
 func assertInitVM(t *testing.T, vm *lc3.VM, pc uint16) {
@@ -197,4 +233,12 @@ func openTestfile(t *testing.T, name string) (*os.File, func() error) {
 	assertError(t, err, nil)
 
 	return f, f.Close
+}
+
+func assertString(t *testing.T, want, got string) {
+	t.Helper()
+
+	if want != got {
+		t.Fatalf("expected output to be %q, got %q", want, got)
+	}
 }

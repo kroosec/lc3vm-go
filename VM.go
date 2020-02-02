@@ -6,7 +6,8 @@ import (
 )
 
 const (
-	MemorySize = int(1 << 16)
+	UserMemoryLimit = uint16(0xfdff)
+	MemorySize      = int(1 << 16)
 )
 
 type Register uint8
@@ -51,9 +52,14 @@ const (
 	Flag_N = uint16(1 << 2)
 )
 
+const (
+	Trap_PUTS = uint8(0x22)
+)
+
 type VM struct {
 	memory    [MemorySize]uint16
 	registers [Register_COUNT]uint16
+	output    io.Writer
 }
 
 func (v *VM) GetMemory(address uint16) uint16 {
@@ -64,8 +70,8 @@ func (v *VM) GetRegister(reg Register) uint16 {
 	return v.registers[reg]
 }
 
-func NewVM(program io.Reader) (*VM, error) {
-	vm := &VM{}
+func NewVM(program io.Reader, output io.Writer) (*VM, error) {
+	vm := &VM{output: output}
 
 	// .ORIG / Start address.
 	if err := vm.readStart(program); err != nil {
@@ -100,8 +106,10 @@ func (v *VM) execInstruction() (err error) {
 		v.execBreak(inst)
 	case Operation_LEA:
 		v.execLoadEffectiveAddress(inst)
+	case Operation_TRAP:
+		v.execTrap(inst)
 	default:
-		err = fmt.Errorf("Operation %x not implemented", op)
+		err = fmt.Errorf("Operation 0x%x not implemented", op)
 	}
 
 	return err
@@ -121,6 +129,38 @@ func (v *VM) updateFlags(reg Register) {
 
 func (v *VM) setRegister(reg Register, value uint16) {
 	v.registers[reg] = value
+}
+
+func (v *VM) execTrap(inst uint16) {
+	trap := uint8(inst & 0x00ff)
+
+	switch trap {
+	case Trap_PUTS:
+		v.execPuts()
+	default:
+		panic(fmt.Sprintf("Trap 0x%x not implemented", trap))
+	}
+}
+
+func (v *VM) execPuts() {
+	address := v.GetRegister(Register_R0)
+
+	var out []byte
+	for {
+		// XXX: Validate that value is less or equal to 0xff too.
+		value := v.GetMemory(address)
+		if value == 0 {
+			break
+		}
+
+		out = append(out, byte(value))
+		if address == UserMemoryLimit {
+			break
+		}
+		address++
+	}
+
+	v.output.Write(out)
 }
 
 func (v *VM) execLoadEffectiveAddress(inst uint16) {
@@ -157,11 +197,10 @@ func (v *VM) readProgram(program io.Reader) error {
 		}
 
 		v.memory[address] = value
-		address++
-		if address == 0 {
-			// XXX: Any further restrictions on programs size ?
-			return fmt.Errorf("Program size beyond memory space.")
+		if address == UserMemoryLimit {
+			return nil
 		}
+		address++
 	}
 }
 
