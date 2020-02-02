@@ -135,6 +135,23 @@ func TestVM(t *testing.T) {
 		assertString(t, "A", output.String())
 	})
 
+	t.Run("test HALT trap", func(t *testing.T) {
+		program := strings.NewReader("\x30\x00\xf0\x25\x00\x00")
+
+		vm, err := lc3.NewVM(program, nil)
+		assertError(t, err, nil)
+
+		err = vm.Step()
+		assertError(t, err, nil)
+		assertState(t, vm.State(), lc3.StateHalted)
+		assertRegister(t, vm, lc3.Register_PC, 0x3001)
+
+		// Can't step further
+		err = vm.Step()
+		assertIsError(t, err)
+		assertRegister(t, vm, lc3.Register_PC, 0x3001)
+	})
+
 	t.Run("execute hello-world.obj program", func(t *testing.T) {
 		f, closer := openTestfile(t, "testdata/hello-world.obj")
 		defer closer()
@@ -166,7 +183,11 @@ func TestVM(t *testing.T) {
 		assertRegister(t, vm, lc3.Register_PC, start+2)
 		assertString(t, "Hello World!", output.String())
 
-		// XXX: HALT
+		// HALT
+		output.Reset()
+		err = vm.Step()
+		assertError(t, err, nil)
+		assertState(t, vm.State(), lc3.StateHalted)
 	})
 
 }
@@ -174,6 +195,7 @@ func TestVM(t *testing.T) {
 func assertInitVM(t *testing.T, vm *lc3.VM, pc uint16) {
 	t.Helper()
 
+	assertState(t, vm.State(), lc3.StateRunning)
 	for i := 0; i < lc3.MemorySize; i++ {
 		value := vm.GetMemory(uint16(i))
 		if value != 0 {
@@ -240,5 +262,13 @@ func assertString(t *testing.T, want, got string) {
 
 	if want != got {
 		t.Fatalf("expected output to be %q, got %q", want, got)
+	}
+}
+
+func assertState(t *testing.T, want uint8, got uint8) {
+	t.Helper()
+
+	if want != got {
+		t.Fatalf("expected vm state to be %d, got %d", want, got)
 	}
 }

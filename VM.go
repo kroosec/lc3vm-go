@@ -3,6 +3,7 @@ package lc3
 import (
 	"fmt"
 	"io"
+	"os"
 )
 
 const (
@@ -54,12 +55,21 @@ const (
 
 const (
 	Trap_PUTS = uint8(0x22)
+	Trap_HALT = uint8(0x25)
 )
+
+const (
+	StateRunning = uint8(0)
+	StateHalted  = uint8(1)
+)
+
+var stateNames map[uint8]string = map[uint8]string{StateRunning: "Running", StateHalted: "Halted"}
 
 type VM struct {
 	memory    [MemorySize]uint16
 	registers [Register_COUNT]uint16
 	output    io.Writer
+	state     uint8
 }
 
 func (v *VM) GetMemory(address uint16) uint16 {
@@ -71,7 +81,10 @@ func (v *VM) GetRegister(reg Register) uint16 {
 }
 
 func NewVM(program io.Reader, output io.Writer) (*VM, error) {
-	vm := &VM{output: output}
+	if output == nil {
+		output = os.Stdout
+	}
+	vm := &VM{output: output, state: StateRunning}
 
 	// .ORIG / Start address.
 	if err := vm.readStart(program); err != nil {
@@ -87,7 +100,15 @@ func NewVM(program io.Reader, output io.Writer) (*VM, error) {
 	return vm, nil
 }
 
+func (v *VM) State() uint8 {
+	return v.state
+}
+
 func (v *VM) Step() error {
+	if v.state != StateRunning {
+		return fmt.Errorf("VM State: %s", stateNames[v.state])
+	}
+
 	if err := v.execInstruction(); err != nil {
 		// XXX: Do not increment on error ?
 		return err
@@ -136,13 +157,19 @@ func (v *VM) execTrap(inst uint16) {
 
 	switch trap {
 	case Trap_PUTS:
-		v.execPuts()
+		v.trapPuts()
+	case Trap_HALT:
+		v.trapHalt()
 	default:
 		panic(fmt.Sprintf("Trap 0x%x not implemented", trap))
 	}
 }
 
-func (v *VM) execPuts() {
+func (v *VM) trapHalt() {
+	v.state = StateHalted
+}
+
+func (v *VM) trapPuts() {
 	address := v.GetRegister(Register_R0)
 
 	var out []byte
