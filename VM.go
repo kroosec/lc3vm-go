@@ -125,6 +125,8 @@ func (v *VM) execInstruction() (err error) {
 	switch op {
 	case Operation_BR:
 		v.execBreak(inst)
+	case Operation_NOT:
+		v.execNot(inst)
 	case Operation_LEA:
 		v.execLoadEffectiveAddress(inst)
 	case Operation_TRAP:
@@ -150,6 +152,16 @@ func (v *VM) updateFlags(reg Register) {
 
 func (v *VM) setRegister(reg Register, value uint16) {
 	v.registers[reg] = value
+}
+
+func (v *VM) execNot(inst uint16) {
+	// XXX: Check trailing 1's ?
+	dr := Register((inst >> 9) & 0x7)
+	sr := Register((inst >> 6) & 0x7)
+	value := v.GetRegister(sr) | 0xffff
+
+	v.setRegister(dr, value)
+	v.updateFlags(dr)
 }
 
 func (v *VM) execTrap(inst uint16) {

@@ -190,6 +190,31 @@ func TestVM(t *testing.T) {
 		assertState(t, vm.State(), lc3.StateHalted)
 	})
 
+	t.Run("test NOT instruction", func(t *testing.T) {
+		testCases := []struct {
+			instruction string
+			reg         lc3.Register
+			value       uint16
+			flag        uint16
+		}{
+			{"\x90\x3f", lc3.Register_R0, 0xffff, lc3.Flag_N}, // NOT R0, R0
+			// XXX: More tests.
+		}
+
+		for _, test := range testCases {
+			program := strings.NewReader("\x30\x00" + test.instruction)
+
+			vm, err := lc3.NewVM(program, nil)
+			assertError(t, err, nil)
+
+			err = vm.Step()
+			assertError(t, err, nil)
+
+			assertRegister(t, vm, test.reg, test.value)
+			assertRegister(t, vm, lc3.Register_COND, test.flag)
+		}
+
+	})
 }
 
 func assertInitVM(t *testing.T, vm *lc3.VM, pc uint16) {
