@@ -93,11 +93,13 @@ func (v *VM) Step() error {
 
 func (v *VM) execInstruction() (err error) {
 	inst := v.memory[v.GetRegister(Register_PC)]
-	op := uint8(inst & 0xf000)
+	op := uint8((inst & 0xf000) >> 12)
 
 	switch op {
 	case Operation_BR:
-		err = v.execBreak(inst)
+		v.execBreak(inst)
+	case Operation_LEA:
+		v.execLoadEffectiveAddress(inst)
 	default:
 		err = fmt.Errorf("Operation %x not implemented", op)
 	}
@@ -105,15 +107,37 @@ func (v *VM) execInstruction() (err error) {
 	return err
 }
 
-func (v *VM) execBreak(inst uint16) error {
+func (v *VM) updateFlags(reg Register) {
+	value := v.GetRegister(reg)
+
+	flags := Flag_P
+	if value == 0 {
+		flags = Flag_Z
+	} else if value>>15 == 1 {
+		flags = Flag_N
+	}
+	v.setRegister(Register_COND, flags)
+}
+
+func (v *VM) setRegister(reg Register, value uint16) {
+	v.registers[reg] = value
+}
+
+func (v *VM) execLoadEffectiveAddress(inst uint16) {
+	offset := signExtend(inst&0x1ff, 9)
+	reg := Register((inst >> 9) & 0x7)
+
+	v.incrementRegister(reg, v.GetRegister(Register_PC)+offset+1)
+	v.updateFlags(reg)
+}
+
+func (v *VM) execBreak(inst uint16) {
 	offset := signExtend(inst&0x1ff, 9)
 	flags := (inst >> 9) & 0x7
 
 	if v.registers[Register_COND]&flags != 0 {
 		v.incrementRegister(Register_PC, offset)
 	}
-
-	return nil
 }
 
 func (v *VM) incrementRegister(reg Register, value uint16) {
