@@ -91,6 +91,9 @@ func TestVM(t *testing.T) {
 
 			{"LDI R6, x3001", "\xA6\x00\x00\x00", 1, lc3.Register_R3, 0x0000, lc3.Flag_Z},
 			{"LDI R8, x3002", "\xA8\x01\x00\x15\x30\x01", 1, lc3.Register_R4, 0x0015, lc3.Flag_P},
+
+			{"LDR R0, R0, #0", "\x60\x00", 1, lc3.Register_R0, 0x0000, lc3.Flag_Z},
+			{"LEA R1, x3002 + LDR R4, R1, #1", "\xE2\x01\x68\x41\x00\x00\xFF\xFF", 2, lc3.Register_R4, 0xFFFF, lc3.Flag_N},
 		}
 
 		for _, test := range testCases {

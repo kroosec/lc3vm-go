@@ -132,6 +132,8 @@ func (v *VM) execInstruction() {
 		v.execLoad(inst, false)
 	case Operation_LDI:
 		v.execLoad(inst, true)
+	case Operation_LDR:
+		v.execLoadRegister(inst)
 	case Operation_NOT:
 		v.execNot(inst)
 	case Operation_LEA:
@@ -218,6 +220,16 @@ func (v *VM) execLoad(inst uint16, indirect bool) {
 	if indirect {
 		value = v.GetMemory(value)
 	}
+
+	v.setRegister(destination, value)
+	v.updateFlags(destination)
+}
+
+func (v *VM) execLoadRegister(inst uint16) {
+	destination := Register((inst >> 9) & 0x7)
+	base := Register((inst >> 6) & 0x7)
+	offset := signExtend(inst&0x3f, 6)
+	value := v.GetMemory(v.GetRegister(base) + offset)
 
 	v.setRegister(destination, value)
 	v.updateFlags(destination)
