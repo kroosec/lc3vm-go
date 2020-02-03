@@ -27,7 +27,7 @@ func TestVM(t *testing.T) {
 		}
 	})
 
-	t.Run("load a empty program and check PC", func(t *testing.T) {
+	t.Run("load an empty program and check PC", func(t *testing.T) {
 		var pc uint16 = 0x3000
 		program := strings.NewReader("\x30\x00")
 
@@ -46,74 +46,54 @@ func TestVM(t *testing.T) {
 		assertMemory(t, vm, start, 0x1234)
 	})
 
-	t.Run("exec a simple NOP program", func(t *testing.T) {
-		program := strings.NewReader("\x30\x00\x00\x00")
-
-		vm, err := lc3.NewVM(program, nil)
-		assertError(t, err, nil)
-
-		err = vm.Step()
-		assertError(t, err, nil)
-		assertRegister(t, vm, lc3.Register_PC, 0x3001)
-	})
-
-	t.Run("test BR instruction", func(t *testing.T) {
+	t.Run("test Simple instructions", func(t *testing.T) {
 		testCases := []struct {
-			instruction string
-			pc          uint16
-		}{
-			{"\x01\x00", 0x3001}, // NOP
-
-			// Only z flag is set at the start.
-			{"\x02\x12", 0x3001}, // BRp x3001
-			{"\x04\x12", 0x3013}, // BRz x3013
-			{"\x06\x07", 0x3008}, // BRzp x3008
-
-			// Negative offset
-			{"\x05\x02", 0x2f03}, // BRz x2f03
-			{"\x09\x33", 0x3001}, // BRn x2f34
-		}
-
-		for _, test := range testCases {
-			program := strings.NewReader("\x30\x00" + test.instruction)
-
-			vm, err := lc3.NewVM(program, nil)
-			assertError(t, err, nil)
-
-			err = vm.Step()
-			assertError(t, err, nil)
-			assertRegister(t, vm, lc3.Register_PC, test.pc)
-			assertRegister(t, vm, lc3.Register_COND, lc3.Flag_Z)
-		}
-
-	})
-
-	t.Run("test LEA instruction", func(t *testing.T) {
-		testCases := []struct {
+			name        string
 			instruction string
 			reg         lc3.Register
 			value       uint16
+			flag        uint16
 		}{
-			{"\xE0\x02", lc3.Register_R0, 0x3003}, // LEA R0, x3003
-			{"\xE3\x34", lc3.Register_R1, 0x2F35}, // LEA R1, x2F35
-			{"\xEE\x00", lc3.Register_R7, 0x3001}, // LEA R7, x3001
+			{"NOP", "\x00\x00", lc3.Register_PC, 0x3001, lc3.Flag_Z},
+
+			// Only z flag is set at the start.
+			{"BRp x3001", "\x02\x12", lc3.Register_PC, 0x3001, lc3.Flag_Z},
+			{"BRz x3013", "\x04\x12", lc3.Register_PC, 0x3013, lc3.Flag_Z},
+			{"BRzp x3008", "\x06\x07", lc3.Register_PC, 0x3008, lc3.Flag_Z},
+
+			// Negative offset
+			{"BRz x2f03", "\x05\x02", lc3.Register_PC, 0x2f03, lc3.Flag_Z},
+			{"BRn x2f34", "\x09\x33", lc3.Register_PC, 0x3001, lc3.Flag_Z},
+
+			{"LEA R0, x3003", "\xE0\x02", lc3.Register_R0, 0x3003, lc3.Flag_P},
+			{"LEA R1, x2F35", "\xE3\x34", lc3.Register_R1, 0x2F35, lc3.Flag_P},
+			{"LEA R7, x3001", "\xEE\x00", lc3.Register_R7, 0x3001, lc3.Flag_P},
+
+			{"NOT R0, R0", "\x90\x3f", lc3.Register_R0, 0xffff, lc3.Flag_N},
+
+			{"ADD R0, R0, R0", "\x10\x00", lc3.Register_R0, 0x0000, lc3.Flag_Z},
+			{"ADD R0, R0, #0", "\x10\x20", lc3.Register_R0, 0x0000, lc3.Flag_Z},
+			{"ADD R3, R2, #5", "\x16\x25", lc3.Register_R3, 0x0005, lc3.Flag_P},
+			{"ADD R5, R4, #-11", "\x1B\x35", lc3.Register_R5, 0xfff5, lc3.Flag_N},
 		}
 
 		for _, test := range testCases {
-			var pc uint16 = 0x3000
-			program := strings.NewReader("\x30\x00" + test.instruction)
+			t.Run(test.name, func(t *testing.T) {
+				program := strings.NewReader("\x30\x00" + test.instruction)
 
-			vm, err := lc3.NewVM(program, nil)
-			assertError(t, err, nil)
+				vm, err := lc3.NewVM(program, nil)
+				assertError(t, err, nil)
 
-			err = vm.Step()
-			assertError(t, err, nil)
+				err = vm.Step()
+				assertError(t, err, nil)
+				if test.reg != lc3.Register_PC {
+					assertRegister(t, vm, lc3.Register_PC, 0x3001)
+				}
 
-			assertRegister(t, vm, lc3.Register_PC, pc+1)
-			assertRegister(t, vm, test.reg, test.value)
-			assertRegister(t, vm, lc3.Register_COND, lc3.Flag_P)
+				assertRegister(t, vm, test.reg, test.value)
+				assertRegister(t, vm, lc3.Register_COND, test.flag)
+			})
 		}
-
 	})
 
 	t.Run("test PUTS trap", func(t *testing.T) {
@@ -188,60 +168,6 @@ func TestVM(t *testing.T) {
 		err = vm.Step()
 		assertError(t, err, nil)
 		assertState(t, vm.State(), lc3.StateHalted)
-	})
-
-	t.Run("test NOT instruction", func(t *testing.T) {
-		testCases := []struct {
-			instruction string
-			reg         lc3.Register
-			value       uint16
-			flag        uint16
-		}{
-			{"\x90\x3f", lc3.Register_R0, 0xffff, lc3.Flag_N}, // NOT R0, R0
-			// XXX: More tests.
-		}
-
-		for _, test := range testCases {
-			program := strings.NewReader("\x30\x00" + test.instruction)
-
-			vm, err := lc3.NewVM(program, nil)
-			assertError(t, err, nil)
-
-			err = vm.Step()
-			assertError(t, err, nil)
-
-			assertRegister(t, vm, test.reg, test.value)
-			assertRegister(t, vm, lc3.Register_COND, test.flag)
-		}
-
-	})
-
-	t.Run("test ADD instruction", func(t *testing.T) {
-		testCases := []struct {
-			instruction string
-			reg         lc3.Register
-			value       uint16
-			flag        uint16
-		}{
-			{"\x10\x00", lc3.Register_R0, 0x0000, lc3.Flag_Z}, // ADD R0, R0, R0
-			{"\x10\x20", lc3.Register_R0, 0x0000, lc3.Flag_Z}, // ADD R0, R0, #0
-			{"\x16\x25", lc3.Register_R3, 0x0005, lc3.Flag_P}, // ADD R3, R2, #5
-			{"\x1B\x35", lc3.Register_R5, 0xfff5, lc3.Flag_N}, // ADD R5, R4, #-11
-		}
-
-		for _, test := range testCases {
-			program := strings.NewReader("\x30\x00" + test.instruction)
-
-			vm, err := lc3.NewVM(program, nil)
-			assertError(t, err, nil)
-
-			err = vm.Step()
-			assertError(t, err, nil)
-
-			assertRegister(t, vm, test.reg, test.value)
-			assertRegister(t, vm, lc3.Register_COND, test.flag)
-		}
-
 	})
 }
 
