@@ -129,7 +129,9 @@ func (v *VM) execInstruction() {
 	case Operation_JSR:
 		v.execJumpSubroutine(inst)
 	case Operation_LD:
-		v.execLoad(inst)
+		v.execLoad(inst, false)
+	case Operation_LDI:
+		v.execLoad(inst, true)
 	case Operation_NOT:
 		v.execNot(inst)
 	case Operation_LEA:
@@ -209,10 +211,13 @@ func (v *VM) execNot(inst uint16) {
 	v.updateFlags(destination)
 }
 
-func (v *VM) execLoad(inst uint16) {
+func (v *VM) execLoad(inst uint16, indirect bool) {
 	destination := Register((inst >> 9) & 0x7)
 	offset := signExtend(inst&0xff, 8)
 	value := v.GetMemory(v.GetRegister(Register_PC) + offset + 1)
+	if indirect {
+		value = v.GetMemory(value)
+	}
 
 	v.setRegister(destination, value)
 	v.updateFlags(destination)
