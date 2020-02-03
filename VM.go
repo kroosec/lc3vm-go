@@ -109,16 +109,11 @@ func (v *VM) Step() error {
 		return fmt.Errorf("VM State: %s", stateNames[v.state])
 	}
 
-	if err := v.execInstruction(); err != nil {
-		// XXX: Do not increment on error ?
-		return err
-	}
-
-	v.incrementRegister(Register_PC, 1)
+	v.execInstruction()
 	return nil
 }
 
-func (v *VM) execInstruction() (err error) {
+func (v *VM) execInstruction() {
 	inst := v.memory[v.GetRegister(Register_PC)]
 	op := uint8((inst & 0xf000) >> 12)
 
@@ -129,6 +124,8 @@ func (v *VM) execInstruction() (err error) {
 		v.execAnd(inst)
 	case Operation_BR:
 		v.execBreak(inst)
+	case Operation_JMP:
+		v.execJump(inst)
 	case Operation_NOT:
 		v.execNot(inst)
 	case Operation_LEA:
@@ -136,10 +133,16 @@ func (v *VM) execInstruction() (err error) {
 	case Operation_TRAP:
 		v.execTrap(inst)
 	default:
-		err = fmt.Errorf("Operation 0x%x not implemented", op)
+		panic(fmt.Sprintf("Operation 0x%x not implemented", op))
 	}
 
-	return err
+	if doIncrementPC(op) {
+		v.incrementRegister(Register_PC, 1)
+	}
+}
+
+func doIncrementPC(op uint8) bool {
+	return op != Operation_JMP
 }
 
 func (v *VM) updateFlags(reg Register) {
@@ -255,6 +258,12 @@ func (v *VM) execBreak(inst uint16) {
 	if v.registers[Register_COND]&flags != 0 {
 		v.incrementRegister(Register_PC, offset)
 	}
+}
+
+func (v *VM) execJump(inst uint16) {
+	baseRegister := Register((inst >> 6) & 0x7)
+
+	v.setRegister(Register_PC, v.GetRegister(baseRegister))
 }
 
 func (v *VM) incrementRegister(reg Register, value uint16) {

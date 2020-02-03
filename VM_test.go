@@ -78,6 +78,10 @@ func TestVM(t *testing.T) {
 
 			{"AND R0, R0, R0", "\x50\x00", lc3.Register_R0, 0x0000, lc3.Flag_Z},
 			{"AND R3, R7, #-22", "\x57\xEA", lc3.Register_R3, 0x0000, lc3.Flag_Z},
+
+			{"JMP R3", "\xC0\x00", lc3.Register_PC, 0x0000, lc3.Flag_Z},
+			{"RET (JMP R7)", "\xC1\xC0", lc3.Register_PC, 0x0000, lc3.Flag_Z},
+			{"ADD R5 R4 #-15; JMP R5", "\x1B\x31\xC1\x40", lc3.Register_PC, 0xfff1, lc3.Flag_N},
 		}
 
 		for _, test := range testCases {
@@ -87,12 +91,15 @@ func TestVM(t *testing.T) {
 				vm, err := lc3.NewVM(program, nil)
 				assertError(t, err, nil)
 
-				err = vm.Step()
-				assertError(t, err, nil)
-				if test.reg != lc3.Register_PC {
-					assertRegister(t, vm, lc3.Register_PC, 0x3001)
+				numInstructions := uint16(len(test.instruction) / 2)
+				for i := uint16(0); i < numInstructions; i++ {
+					err = vm.Step()
+					assertError(t, err, nil)
 				}
 
+				if test.reg != lc3.Register_PC {
+					assertRegister(t, vm, lc3.Register_PC, numInstructions+0x3000)
+				}
 				assertRegister(t, vm, test.reg, test.value)
 				assertRegister(t, vm, lc3.Register_COND, test.flag)
 			})
