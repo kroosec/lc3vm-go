@@ -179,7 +179,7 @@ func (v *VM) execAdd(inst uint16) {
 
 		value = v.GetRegister(source2)
 	} else {
-		value = signExtend(inst&0x1f, 5)
+		value = signExtend(inst, 5)
 	}
 
 	v.setRegister(destination, v.GetRegister(source1)+value)
@@ -196,7 +196,7 @@ func (v *VM) execAnd(inst uint16) {
 
 		value = v.GetRegister(source2)
 	} else {
-		value = signExtend(inst&0x1f, 5)
+		value = signExtend(inst, 5)
 	}
 
 	v.setRegister(destination, v.GetRegister(source1)&value)
@@ -215,7 +215,7 @@ func (v *VM) execNot(inst uint16) {
 
 func (v *VM) execLoad(inst uint16, indirect bool) {
 	destination := Register((inst >> 9) & 0x7)
-	offset := signExtend(inst&0xff, 8)
+	offset := signExtend(inst, 8)
 	value := v.GetMemory(v.GetRegister(Register_PC) + offset + 1)
 	if indirect {
 		value = v.GetMemory(value)
@@ -228,7 +228,7 @@ func (v *VM) execLoad(inst uint16, indirect bool) {
 func (v *VM) execLoadRegister(inst uint16) {
 	destination := Register((inst >> 9) & 0x7)
 	base := Register((inst >> 6) & 0x7)
-	offset := signExtend(inst&0x3f, 6)
+	offset := signExtend(inst, 6)
 	value := v.GetMemory(v.GetRegister(base) + offset)
 
 	v.setRegister(destination, value)
@@ -274,7 +274,7 @@ func (v *VM) trapPuts() {
 }
 
 func (v *VM) execLoadEffectiveAddress(inst uint16) {
-	offset := signExtend(inst&0x1ff, 9)
+	offset := signExtend(inst, 9)
 	reg := Register((inst >> 9) & 0x7)
 
 	v.incrementRegister(reg, v.GetRegister(Register_PC)+offset+1)
@@ -282,7 +282,7 @@ func (v *VM) execLoadEffectiveAddress(inst uint16) {
 }
 
 func (v *VM) execBreak(inst uint16) {
-	offset := signExtend(inst&0x1ff, 9)
+	offset := signExtend(inst, 9)
 	flags := (inst >> 9) & 0x7
 
 	if v.registers[Register_COND]&flags != 0 {
@@ -304,7 +304,7 @@ func (v *VM) execJumpSubroutine(inst uint16) {
 		baseRegister := Register((inst >> 6) & 0x7)
 		destination = v.GetRegister(baseRegister)
 	} else {
-		destination = signExtend(inst&0x7ff, 11)
+		destination = signExtend(inst, 11)
 	}
 
 	v.setRegister(Register_PC, destination)
@@ -359,9 +359,10 @@ func readValue(program io.Reader) (uint16, error) {
 	return (uint16(buffer[0]) << 8) + uint16(buffer[1]), nil
 }
 
-func signExtend(value uint16, pos uint8) uint16 {
-	if (value>>(pos-1))&1 != 0 {
-		value |= (0xFFFF << pos)
+func signExtend(value uint16, count uint8) uint16 {
+	value = value & ((1 << count) - 1)
+	if (value>>(count-1))&1 != 0 {
+		value |= (0xFFFF << count)
 	}
 	return value
 }
