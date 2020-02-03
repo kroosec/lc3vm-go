@@ -86,6 +86,9 @@ func TestVM(t *testing.T) {
 			{"JSRR R0; check R7", "\x40\x00", lc3.Register_R7, 0x3001, lc3.Flag_Z},
 			{"JSRR R0; check PC", "\x40\x00", lc3.Register_PC, 0x0000, lc3.Flag_Z},
 			{"ADD R3, R3, #14 + JSRR R3", "\x16\xEE\x40\xC0", lc3.Register_PC, 0x000E, lc3.Flag_P},
+
+			{"LD R0, x3001", "\x20\x00", lc3.Register_R0, 0x0000, lc3.Flag_Z},
+			{"LD R5, x3003 + NOP + NOP + NOP(data)", "\x2A\x02\x00\x00\x00\x00\x01\x23", lc3.Register_R5, 0x0123, lc3.Flag_P},
 		}
 
 		for _, test := range testCases {

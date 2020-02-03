@@ -128,6 +128,8 @@ func (v *VM) execInstruction() {
 		v.execJump(inst)
 	case Operation_JSR:
 		v.execJumpSubroutine(inst)
+	case Operation_LD:
+		v.execLoad(inst)
 	case Operation_NOT:
 		v.execNot(inst)
 	case Operation_LEA:
@@ -202,6 +204,15 @@ func (v *VM) execNot(inst uint16) {
 	destination := Register((inst >> 9) & 0x7)
 	source := Register((inst >> 6) & 0x7)
 	value := v.GetRegister(source) | 0xffff
+
+	v.setRegister(destination, value)
+	v.updateFlags(destination)
+}
+
+func (v *VM) execLoad(inst uint16) {
+	destination := Register((inst >> 9) & 0x7)
+	offset := signExtend(inst&0xff, 8)
+	value := v.GetMemory(v.GetRegister(Register_PC) + offset + 1)
 
 	v.setRegister(destination, value)
 	v.updateFlags(destination)
