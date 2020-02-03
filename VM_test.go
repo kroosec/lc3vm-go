@@ -75,6 +75,9 @@ func TestVM(t *testing.T) {
 			{"ADD R0, R0, #0", "\x10\x20", lc3.Register_R0, 0x0000, lc3.Flag_Z},
 			{"ADD R3, R2, #5", "\x16\x25", lc3.Register_R3, 0x0005, lc3.Flag_P},
 			{"ADD R5, R4, #-11", "\x1B\x35", lc3.Register_R5, 0xfff5, lc3.Flag_N},
+
+			{"AND R0, R0, R0", "\x50\x00", lc3.Register_R0, 0x0000, lc3.Flag_Z},
+			{"AND R3, R7, #-22", "\x57\xEA", lc3.Register_R3, 0x0000, lc3.Flag_Z},
 		}
 
 		for _, test := range testCases {

@@ -125,6 +125,8 @@ func (v *VM) execInstruction() (err error) {
 	switch op {
 	case Operation_ADD:
 		v.execAdd(inst)
+	case Operation_AND:
+		v.execAnd(inst)
 	case Operation_BR:
 		v.execBreak(inst)
 	case Operation_NOT:
@@ -170,6 +172,23 @@ func (v *VM) execAdd(inst uint16) {
 	}
 
 	v.setRegister(destination, v.GetRegister(source1)+value)
+	v.updateFlags(destination)
+}
+
+func (v *VM) execAnd(inst uint16) {
+	destination := Register((inst >> 9) & 0x7)
+	source1 := Register((inst >> 6) & 0x7)
+
+	var value uint16
+	if inst&0x32 == 0 {
+		source2 := Register(inst & 0x7)
+
+		value = v.GetRegister(source2)
+	} else {
+		value = signExtend(inst&0x1f, 5)
+	}
+
+	v.setRegister(destination, v.GetRegister(source1)&value)
 	v.updateFlags(destination)
 }
 
