@@ -126,6 +126,8 @@ func (v *VM) execInstruction() {
 		v.execBreak(inst)
 	case Operation_JMP:
 		v.execJump(inst)
+	case Operation_JSR:
+		v.execJumpSubroutine(inst)
 	case Operation_NOT:
 		v.execNot(inst)
 	case Operation_LEA:
@@ -142,7 +144,7 @@ func (v *VM) execInstruction() {
 }
 
 func doIncrementPC(op uint8) bool {
-	return op != Operation_JMP
+	return op != Operation_JMP && op != Operation_JSR
 }
 
 func (v *VM) updateFlags(reg Register) {
@@ -264,6 +266,20 @@ func (v *VM) execJump(inst uint16) {
 	baseRegister := Register((inst >> 6) & 0x7)
 
 	v.setRegister(Register_PC, v.GetRegister(baseRegister))
+}
+
+func (v *VM) execJumpSubroutine(inst uint16) {
+	v.setRegister(Register_R7, v.GetRegister(Register_PC)+1)
+
+	var destination uint16
+	if inst&0x800 == 0 {
+		baseRegister := Register((inst >> 6) & 0x7)
+		destination = v.GetRegister(baseRegister)
+	} else {
+		destination = signExtend(inst&0x7ff, 11)
+	}
+
+	v.setRegister(Register_PC, destination)
 }
 
 func (v *VM) incrementRegister(reg Register, value uint16) {

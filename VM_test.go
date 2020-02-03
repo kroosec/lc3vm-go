@@ -81,7 +81,11 @@ func TestVM(t *testing.T) {
 
 			{"JMP R3", "\xC0\x00", lc3.Register_PC, 0x0000, lc3.Flag_Z},
 			{"RET (JMP R7)", "\xC1\xC0", lc3.Register_PC, 0x0000, lc3.Flag_Z},
-			{"ADD R5 R4 #-15; JMP R5", "\x1B\x31\xC1\x40", lc3.Register_PC, 0xfff1, lc3.Flag_N},
+			{"ADD R5 R4 #-15 + JMP R5", "\x1B\x31\xC1\x40", lc3.Register_PC, 0xfff1, lc3.Flag_N},
+
+			{"JSRR R0; check R7", "\x40\x00", lc3.Register_R7, 0x3001, lc3.Flag_Z},
+			{"JSRR R0; check PC", "\x40\x00", lc3.Register_PC, 0x0000, lc3.Flag_Z},
+			{"ADD R3, R3, #14 + JSRR R3", "\x16\xEE\x40\xC0", lc3.Register_PC, 0x000E, lc3.Flag_P},
 		}
 
 		for _, test := range testCases {
@@ -97,9 +101,6 @@ func TestVM(t *testing.T) {
 					assertError(t, err, nil)
 				}
 
-				if test.reg != lc3.Register_PC {
-					assertRegister(t, vm, lc3.Register_PC, numInstructions+0x3000)
-				}
 				assertRegister(t, vm, test.reg, test.value)
 				assertRegister(t, vm, lc3.Register_COND, test.flag)
 			})
