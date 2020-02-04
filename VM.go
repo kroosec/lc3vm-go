@@ -28,6 +28,26 @@ const (
 	Register_COUNT
 )
 
+var registerNames map[Register]string = map[Register]string{
+	Register_R0:   "R0",
+	Register_R1:   "R1",
+	Register_R2:   "R2",
+	Register_R3:   "R3",
+	Register_R4:   "R4",
+	Register_R5:   "R5",
+	Register_R6:   "R6",
+	Register_R7:   "R7",
+	Register_PC:   "PC",
+	Register_COND: "COND",
+}
+
+func (reg Register) String() string {
+	if reg >= Register_COUNT {
+		return "INVALID"
+	}
+	return registerNames[reg]
+}
+
 const (
 	Operation_BR = iota
 	Operation_ADD
@@ -46,6 +66,25 @@ const (
 	Operation_LEA
 	Operation_TRAP
 )
+
+var opNames map[uint8]string = map[uint8]string{
+	Operation_BR:   "BR",
+	Operation_ADD:  "ADD",
+	Operation_LD:   "LD",
+	Operation_ST:   "ST",
+	Operation_JSR:  "JSR",
+	Operation_AND:  "AND",
+	Operation_LDR:  "LDR",
+	Operation_STR:  "STR",
+	Operation_RTI:  "RTI",
+	Operation_NOT:  "NOT",
+	Operation_LDI:  "LDI",
+	Operation_STI:  "STI",
+	Operation_JMP:  "JMP",
+	Operation_RES:  "RES",
+	Operation_LEA:  "LEA",
+	Operation_TRAP: "TRAP",
+}
 
 const (
 	Flag_P = uint16(1 << 0)
@@ -134,14 +173,14 @@ func (v *VM) execInstruction() {
 		v.execLoad(inst, true)
 	case Operation_LDR:
 		v.execLoadRegister(inst)
-	case Operation_NOT:
-		v.execNot(inst)
 	case Operation_LEA:
 		v.execLoadEffectiveAddress(inst)
+	case Operation_NOT:
+		v.execNot(inst)
+	case Operation_RTI, Operation_RES:
+		panic(fmt.Sprintf("Operation %q not implemented", opNames[op]))
 	case Operation_TRAP:
 		v.execTrap(inst)
-	default:
-		panic(fmt.Sprintf("Operation 0x%x not implemented", op))
 	}
 
 	if doIncrementPC(op) {

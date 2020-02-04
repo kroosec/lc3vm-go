@@ -232,7 +232,7 @@ func assertRegister(t *testing.T, vm *lc3.VM, reg lc3.Register, want uint16) {
 
 	got := vm.GetRegister(reg)
 	if got != want {
-		t.Fatalf("expected register %d's value to be 0x%x, got 0x%x", reg, want, got)
+		t.Fatalf("expected register %q value to be 0x%x, got 0x%x", reg, want, got)
 	}
 }
 
