@@ -177,6 +177,10 @@ func (v *VM) execInstruction() {
 		v.execLoadEffectiveAddress(inst)
 	case Operation_NOT:
 		v.execNot(inst)
+	case Operation_ST:
+		v.execStore(inst, false)
+	case Operation_STI:
+		v.execStore(inst, true)
 	case Operation_RTI, Operation_RES:
 		panic(fmt.Sprintf("Operation %q not implemented", opNames[op]))
 	case Operation_TRAP:
@@ -262,6 +266,21 @@ func (v *VM) execLoad(inst uint16, indirect bool) {
 
 	v.setRegister(destination, value)
 	v.updateFlags(destination)
+}
+
+func (v *VM) execStore(inst uint16, indirect bool) {
+	source := Register((inst >> 9) & 0x7)
+	offset := signExtend(inst, 9)
+	address := v.GetRegister(Register_PC) + offset + 1
+	if indirect {
+		address = v.GetMemory(address)
+	}
+
+	v.setMemory(address, v.GetRegister(source))
+}
+
+func (v *VM) setMemory(address uint16, value uint16) {
+	v.memory[address] = value
 }
 
 func (v *VM) execLoadRegister(inst uint16) {
@@ -365,7 +384,7 @@ func (v *VM) readProgram(program io.Reader) error {
 			return fmt.Errorf("Error reading the program: %v", err)
 		}
 
-		v.memory[address] = value
+		v.setMemory(address, value)
 		if address == UserMemoryLimit {
 			return nil
 		}

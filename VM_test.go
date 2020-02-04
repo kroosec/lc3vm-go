@@ -114,6 +114,39 @@ func TestVM(t *testing.T) {
 		}
 	})
 
+	t.Run("test STx instructions", func(t *testing.T) {
+		testCases := []struct {
+			name        string
+			instruction string
+			memory      uint16
+			value       uint16
+			flag        uint16
+		}{
+			{"NOP + ST R2, x3006", "\x00\x00\x34\x05", 0x3006, 0x0, lc3.Flag_Z},
+			{"ADD R5 R4 #-14 + ST R5, x3006", "\x1B\x32\x3A\x40", 0x3042, 0xFFF2, lc3.Flag_N},
+
+			{"NOP + STI R0, x3002", "\x00\x00\xB0\x00", 0xB000, 0x0, lc3.Flag_Z},
+			{"ADD R7, R4, #-1 + STI R7, x3003", "\x1F\x3F\xBE\x01\x00\x00\x12\x34", 0x1234, 0xFFFF, lc3.Flag_N},
+		}
+
+		for _, test := range testCases {
+			t.Run(test.name, func(t *testing.T) {
+				program := strings.NewReader("\x30\x00" + test.instruction)
+
+				vm, err := lc3.NewVM(program, nil)
+				assertError(t, err, nil)
+
+				err = vm.Step()
+				assertError(t, err, nil)
+				err = vm.Step()
+				assertError(t, err, nil)
+
+				assertMemory(t, vm, test.memory, test.value)
+				assertRegister(t, vm, lc3.Register_COND, test.flag)
+			})
+		}
+	})
+
 	t.Run("test PUTS trap", func(t *testing.T) {
 		program := strings.NewReader("\x30\x00\xE0\x01\xf0\x22\x00\x41\x00\x00")
 
@@ -194,10 +227,7 @@ func assertInitVM(t *testing.T, vm *lc3.VM, pc uint16) {
 
 	assertState(t, vm.State(), lc3.StateRunning)
 	for i := 0; i < lc3.MemorySize; i++ {
-		value := vm.GetMemory(uint16(i))
-		if value != 0 {
-			t.Fatalf("Expected zeroed memory at %d, got %d", i, value)
-		}
+		assertMemory(t, vm, uint16(i), 0)
 	}
 
 	for reg := lc3.Register_R0; reg < lc3.Register_COUNT; reg++ {
@@ -241,7 +271,7 @@ func assertMemory(t *testing.T, vm *lc3.VM, address, want uint16) {
 
 	got := vm.GetMemory(address)
 	if got != want {
-		t.Fatalf("expected memory at %x's to have 0x%x, got 0x%x", address, want, got)
+		t.Fatalf("expected memory at 0x%x to have 0x%x, got 0x%x", address, want, got)
 	}
 }
 
