@@ -84,6 +84,7 @@ func TestVM(t *testing.T) {
 			{"RET (JMP R7)", "\xC1\xC0", 1, lc3.Register_PC, 0x0000, lc3.Flag_Z},
 			{"ADD R5 R4 #-15 + JMP R5", "\x1B\x31\xC1\x40", 2, lc3.Register_PC, 0xfff1, lc3.Flag_N},
 
+			{"JSR x3001", "\x48\x00", 1, lc3.Register_PC, 0x3001, lc3.Flag_Z},
 			{"JSRR R0; check R7", "\x40\x00", 1, lc3.Register_R7, 0x3001, lc3.Flag_Z},
 			{"JSRR R0; check PC", "\x40\x00", 1, lc3.Register_PC, 0x0000, lc3.Flag_Z},
 			{"ADD R3, R3, #14 + JSRR R3", "\x16\xEE\x40\xC0", 2, lc3.Register_PC, 0x000E, lc3.Flag_P},
@@ -209,22 +210,14 @@ func TestVM(t *testing.T) {
 		}
 
 		// LEA R0, HELLO_STR
-		err = vm.Step()
+		// PUTS
+		// HALT
+		err = vm.Run()
 		assertError(t, err, nil)
-		assertRegister(t, vm, lc3.Register_PC, start+1)
+		assertRegister(t, vm, lc3.Register_PC, start+3)
 		assertRegister(t, vm, lc3.Register_R0, 0x3003)
 		assertRegister(t, vm, lc3.Register_COND, lc3.Flag_P)
-
-		// PUTS
-		err = vm.Step()
-		assertError(t, err, nil)
-		assertRegister(t, vm, lc3.Register_PC, start+2)
 		assertString(t, "Hello World!", output.String())
-
-		// HALT
-		output.Reset()
-		err = vm.Step()
-		assertError(t, err, nil)
 		assertState(t, vm.State(), lc3.StateHalted)
 	})
 

@@ -157,6 +157,15 @@ func (v *VM) Step() error {
 	return nil
 }
 
+func (v *VM) Run() error {
+	for v.State() == StateRunning {
+		if err := v.Step(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (v *VM) execInstruction() {
 	inst := v.memory[v.GetRegister(Register_PC)]
 	op := uint8((inst & 0xf000) >> 12)
@@ -389,7 +398,7 @@ func (v *VM) execJumpSubroutine(inst uint16) {
 		baseRegister := Register((inst >> 6) & 0x7)
 		destination = v.GetRegister(baseRegister)
 	} else {
-		destination = signExtend(inst, 11)
+		destination = v.GetRegister(Register_PC) + signExtend(inst, 11) + 1
 	}
 
 	v.SetRegister(Register_PC, destination)
