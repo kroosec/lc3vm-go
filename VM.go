@@ -260,7 +260,7 @@ func (v *VM) execNot(inst uint16) {
 
 func (v *VM) execLoad(inst uint16, indirect bool) {
 	destination := Register((inst >> 9) & 0x7)
-	offset := signExtend(inst, 8)
+	offset := signExtend(inst, 9)
 	value := v.GetMemory(v.GetRegister(Register_PC) + offset + 1)
 	if indirect {
 		value = v.GetMemory(value)
@@ -278,7 +278,7 @@ func (v *VM) execStore(inst uint16, indirect bool) {
 		address = v.GetMemory(address)
 	}
 
-	v.setMemory(address, v.GetRegister(source))
+	v.SetMemory(address, v.GetRegister(source))
 }
 
 func (v *VM) execStoreRegister(inst uint16) {
@@ -287,10 +287,10 @@ func (v *VM) execStoreRegister(inst uint16) {
 	offset := signExtend(inst, 6)
 	address := v.GetRegister(base) + offset
 
-	v.setMemory(address, v.GetRegister(source))
+	v.SetMemory(address, v.GetRegister(source))
 }
 
-func (v *VM) setMemory(address uint16, value uint16) {
+func (v *VM) SetMemory(address uint16, value uint16) {
 	v.memory[address] = value
 }
 
@@ -395,7 +395,7 @@ func (v *VM) readProgram(program io.Reader) error {
 			return fmt.Errorf("Error reading the program: %v", err)
 		}
 
-		v.setMemory(address, value)
+		v.SetMemory(address, value)
 		if address == UserMemoryLimit {
 			return nil
 		}

@@ -47,6 +47,8 @@ func TestVM(t *testing.T) {
 	})
 
 	t.Run("test Simple instructions", func(t *testing.T) {
+		var canaryAddress, canaryValue uint16 = 0x2f06, 0x1234
+
 		testCases := []struct {
 			name        string
 			instruction string
@@ -88,6 +90,7 @@ func TestVM(t *testing.T) {
 
 			{"LD R0, x3001", "\x20\x00", 1, lc3.Register_R0, 0x0000, lc3.Flag_Z},
 			{"LD R5, x3003", "\x2A\x02\x00\x00\x00\x00\x01\x23", 1, lc3.Register_R5, 0x0123, lc3.Flag_P},
+			{"LD R0, x2F06", "\x21\x05", 1, lc3.Register_R0, 0x1234, lc3.Flag_P},
 
 			{"LDI R6, x3001", "\xA6\x00\x00\x00", 1, lc3.Register_R3, 0x0000, lc3.Flag_Z},
 			{"LDI R8, x3002", "\xA8\x01\x00\x15\x30\x01", 1, lc3.Register_R4, 0x0015, lc3.Flag_P},
@@ -102,6 +105,7 @@ func TestVM(t *testing.T) {
 
 				vm, err := lc3.NewVM(program, nil)
 				assertError(t, err, nil)
+				vm.SetMemory(canaryAddress, canaryValue)
 
 				for i := 0; i < test.steps; i++ {
 					err = vm.Step()
