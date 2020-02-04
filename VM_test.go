@@ -237,6 +237,20 @@ func TestVM(t *testing.T) {
 		assertRegister(t, vm, lc3.Register_PC, 0x3001)
 		assertRegister(t, vm, lc3.Register_R0, uint16(want))
 	})
+
+	t.Run("test OUT trap", func(t *testing.T) {
+		program := strings.NewReader("\x30\x00\xf0\x21")
+		want := byte(0x41)
+
+		output := bytes.NewBuffer([]byte{})
+		vm, err := lc3.NewVM(program, nil, output)
+		assertError(t, err, nil)
+		vm.SetRegister(lc3.Register_R0, uint16(want))
+
+		err = vm.Step()
+		assertError(t, err, nil)
+		assertString(t, output.String(), string([]byte{0x41}))
+	})
 }
 
 func assertInitVM(t *testing.T, vm *lc3.VM, pc uint16) {

@@ -94,6 +94,7 @@ const (
 
 const (
 	Trap_GETC = uint8(0x20)
+	Trap_OUT  = uint8(0x21)
 	Trap_PUTS = uint8(0x22)
 	Trap_HALT = uint8(0x25)
 )
@@ -324,6 +325,8 @@ func (v *VM) execTrap(inst uint16) {
 	switch trap {
 	case Trap_GETC:
 		v.trapGetc()
+	case Trap_OUT:
+		v.trapOut()
 	case Trap_PUTS:
 		v.trapPuts()
 	case Trap_HALT:
@@ -340,6 +343,11 @@ func (v *VM) trapGetc() {
 		panic(fmt.Sprintf("Couldn't read a char: %v", err))
 	}
 	v.SetRegister(Register_R0, uint16(char[0]))
+}
+
+func (v *VM) trapOut() {
+	char := v.GetRegister(Register_R0) & 0xff
+	v.output.Write([]byte{byte(char)})
 }
 
 func (v *VM) trapHalt() {
