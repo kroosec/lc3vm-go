@@ -21,7 +21,7 @@ func TestVM(t *testing.T) {
 		for i, test := range testCases {
 			t.Run(fmt.Sprintf("test case #%d", i), func(t *testing.T) {
 				program := strings.NewReader(test)
-				_, err := lc3.NewVM(program, nil)
+				_, err := lc3.NewVM(program, nil, nil)
 				assertIsError(t, err)
 			})
 		}
@@ -31,7 +31,7 @@ func TestVM(t *testing.T) {
 		var pc uint16 = 0x3000
 		program := strings.NewReader("\x30\x00")
 
-		vm, err := lc3.NewVM(program, nil)
+		vm, err := lc3.NewVM(program, nil, nil)
 		assertError(t, err, nil)
 		assertInitVM(t, vm, pc)
 	})
@@ -40,7 +40,7 @@ func TestVM(t *testing.T) {
 		var start uint16 = 0x3000
 		program := strings.NewReader("\x30\x00\x12\x34")
 
-		vm, err := lc3.NewVM(program, nil)
+		vm, err := lc3.NewVM(program, nil, nil)
 		assertError(t, err, nil)
 		assertRegister(t, vm, lc3.Register_PC, start)
 		assertMemory(t, vm, start, 0x1234)
@@ -103,7 +103,7 @@ func TestVM(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				program := strings.NewReader("\x30\x00" + test.instruction)
 
-				vm, err := lc3.NewVM(program, nil)
+				vm, err := lc3.NewVM(program, nil, nil)
 				assertError(t, err, nil)
 				vm.SetMemory(canaryAddress, canaryValue)
 
@@ -140,7 +140,7 @@ func TestVM(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				program := strings.NewReader("\x30\x00" + test.instruction)
 
-				vm, err := lc3.NewVM(program, nil)
+				vm, err := lc3.NewVM(program, nil, nil)
 				assertError(t, err, nil)
 
 				err = vm.Step()
@@ -158,7 +158,7 @@ func TestVM(t *testing.T) {
 		program := strings.NewReader("\x30\x00\xE0\x01\xf0\x22\x00\x41\x00\x00")
 
 		output := bytes.NewBuffer([]byte{})
-		vm, err := lc3.NewVM(program, output)
+		vm, err := lc3.NewVM(program, nil, output)
 		assertError(t, err, nil)
 
 		// LEA R0, x3002
@@ -176,7 +176,7 @@ func TestVM(t *testing.T) {
 	t.Run("test HALT trap", func(t *testing.T) {
 		program := strings.NewReader("\x30\x00\xf0\x25\x00\x00")
 
-		vm, err := lc3.NewVM(program, nil)
+		vm, err := lc3.NewVM(program, nil, nil)
 		assertError(t, err, nil)
 
 		err = vm.Step()
@@ -195,7 +195,7 @@ func TestVM(t *testing.T) {
 		defer closer()
 
 		output := bytes.NewBuffer([]byte{})
-		vm, err := lc3.NewVM(f, output)
+		vm, err := lc3.NewVM(f, nil, output)
 		assertError(t, err, nil)
 
 		var start uint16 = 0x3000
@@ -226,6 +226,23 @@ func TestVM(t *testing.T) {
 		err = vm.Step()
 		assertError(t, err, nil)
 		assertState(t, vm.State(), lc3.StateHalted)
+	})
+
+	t.Run("test GETC trap", func(t *testing.T) {
+		program := strings.NewReader("\x30\x00\xf0\x20")
+		want := 'O'
+		input := strings.NewReader(string(want))
+
+		vm, err := lc3.NewVM(program, input, nil)
+		assertError(t, err, nil)
+		// To make sure that top bytes are also cleared.
+		vm.SetRegister(lc3.Register_R0, 0x1234)
+
+		err = vm.Step()
+		assertError(t, err, nil)
+		assertState(t, vm.State(), lc3.StateRunning)
+		assertRegister(t, vm, lc3.Register_PC, 0x3001)
+		assertRegister(t, vm, lc3.Register_R0, uint16(want))
 	})
 }
 

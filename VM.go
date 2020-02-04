@@ -93,6 +93,7 @@ const (
 )
 
 const (
+	Trap_GETC = uint8(0x20)
 	Trap_PUTS = uint8(0x22)
 	Trap_HALT = uint8(0x25)
 )
@@ -108,6 +109,7 @@ type VM struct {
 	memory    [MemorySize]uint16
 	registers [Register_COUNT]uint16
 	output    io.Writer
+	input     io.Reader
 	state     uint8
 }
 
@@ -119,11 +121,14 @@ func (v *VM) GetRegister(reg Register) uint16 {
 	return v.registers[reg]
 }
 
-func NewVM(program io.Reader, output io.Writer) (*VM, error) {
+func NewVM(program io.Reader, input io.Reader, output io.Writer) (*VM, error) {
 	if output == nil {
 		output = os.Stdout
 	}
-	vm := &VM{output: output, state: StateRunning}
+	if input == nil {
+		input = os.Stdin
+	}
+	vm := &VM{input: input, output: output, state: StateRunning}
 
 	// .ORIG / Start address.
 	if err := vm.readStart(program); err != nil {
@@ -207,10 +212,10 @@ func (v *VM) updateFlags(reg Register) {
 	} else if value>>15 == 1 {
 		flags = Flag_N
 	}
-	v.setRegister(Register_COND, flags)
+	v.SetRegister(Register_COND, flags)
 }
 
-func (v *VM) setRegister(reg Register, value uint16) {
+func (v *VM) SetRegister(reg Register, value uint16) {
 	v.registers[reg] = value
 }
 
@@ -227,7 +232,7 @@ func (v *VM) execAdd(inst uint16) {
 		value = signExtend(inst, 5)
 	}
 
-	v.setRegister(destination, v.GetRegister(source1)+value)
+	v.SetRegister(destination, v.GetRegister(source1)+value)
 	v.updateFlags(destination)
 }
 
@@ -244,7 +249,7 @@ func (v *VM) execAnd(inst uint16) {
 		value = signExtend(inst, 5)
 	}
 
-	v.setRegister(destination, v.GetRegister(source1)&value)
+	v.SetRegister(destination, v.GetRegister(source1)&value)
 	v.updateFlags(destination)
 }
 
@@ -254,7 +259,7 @@ func (v *VM) execNot(inst uint16) {
 	source := Register((inst >> 6) & 0x7)
 	value := v.GetRegister(source) | 0xffff
 
-	v.setRegister(destination, value)
+	v.SetRegister(destination, value)
 	v.updateFlags(destination)
 }
 
@@ -266,7 +271,7 @@ func (v *VM) execLoad(inst uint16, indirect bool) {
 		value = v.GetMemory(value)
 	}
 
-	v.setRegister(destination, value)
+	v.SetRegister(destination, value)
 	v.updateFlags(destination)
 }
 
@@ -300,7 +305,7 @@ func (v *VM) execLoadRegister(inst uint16) {
 	offset := signExtend(inst, 6)
 	value := v.GetMemory(v.GetRegister(base) + offset)
 
-	v.setRegister(destination, value)
+	v.SetRegister(destination, value)
 	v.updateFlags(destination)
 }
 
@@ -308,6 +313,8 @@ func (v *VM) execTrap(inst uint16) {
 	trap := uint8(inst & 0x00ff)
 
 	switch trap {
+	case Trap_GETC:
+		v.trapGetc()
 	case Trap_PUTS:
 		v.trapPuts()
 	case Trap_HALT:
@@ -315,6 +322,15 @@ func (v *VM) execTrap(inst uint16) {
 	default:
 		panic(fmt.Sprintf("Trap 0x%x not implemented", trap))
 	}
+}
+
+func (v *VM) trapGetc() {
+	char := make([]byte, 1)
+	n, err := v.input.Read(char)
+	if n == 0 || err != nil {
+		panic(fmt.Sprintf("Couldn't read a char: %v", err))
+	}
+	v.SetRegister(Register_R0, uint16(char[0]))
 }
 
 func (v *VM) trapHalt() {
@@ -362,11 +378,11 @@ func (v *VM) execBreak(inst uint16) {
 func (v *VM) execJump(inst uint16) {
 	baseRegister := Register((inst >> 6) & 0x7)
 
-	v.setRegister(Register_PC, v.GetRegister(baseRegister))
+	v.SetRegister(Register_PC, v.GetRegister(baseRegister))
 }
 
 func (v *VM) execJumpSubroutine(inst uint16) {
-	v.setRegister(Register_R7, v.GetRegister(Register_PC)+1)
+	v.SetRegister(Register_R7, v.GetRegister(Register_PC)+1)
 
 	var destination uint16
 	if inst&0x800 == 0 {
@@ -376,7 +392,7 @@ func (v *VM) execJumpSubroutine(inst uint16) {
 		destination = signExtend(inst, 11)
 	}
 
-	v.setRegister(Register_PC, destination)
+	v.SetRegister(Register_PC, destination)
 }
 
 func (v *VM) incrementRegister(reg Register, value uint16) {
