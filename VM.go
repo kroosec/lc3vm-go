@@ -181,6 +181,8 @@ func (v *VM) execInstruction() {
 		v.execStore(inst, false)
 	case Operation_STI:
 		v.execStore(inst, true)
+	case Operation_STR:
+		v.execStoreRegister(inst)
 	case Operation_RTI, Operation_RES:
 		panic(fmt.Sprintf("Operation %q not implemented", opNames[op]))
 	case Operation_TRAP:
@@ -275,6 +277,15 @@ func (v *VM) execStore(inst uint16, indirect bool) {
 	if indirect {
 		address = v.GetMemory(address)
 	}
+
+	v.setMemory(address, v.GetRegister(source))
+}
+
+func (v *VM) execStoreRegister(inst uint16) {
+	source := Register((inst >> 9) & 0x7)
+	base := Register((inst >> 6) & 0x7)
+	offset := signExtend(inst, 6)
+	address := v.GetRegister(base) + offset
 
 	v.setMemory(address, v.GetRegister(source))
 }

@@ -114,7 +114,7 @@ func TestVM(t *testing.T) {
 		}
 	})
 
-	t.Run("test STx instructions", func(t *testing.T) {
+	t.Run("test ST/STI/STR instructions", func(t *testing.T) {
 		testCases := []struct {
 			name        string
 			instruction string
@@ -125,8 +125,11 @@ func TestVM(t *testing.T) {
 			{"NOP + ST R2, x3006", "\x00\x00\x34\x05", 0x3006, 0x0, lc3.Flag_Z},
 			{"ADD R5 R4 #-14 + ST R5, x3006", "\x1B\x32\x3A\x40", 0x3042, 0xFFF2, lc3.Flag_N},
 
-			{"NOP + STI R0, x3002", "\x00\x00\xB0\x00", 0xB000, 0x0, lc3.Flag_Z},
+			{"NOP + STI R0, x3002", "\x00\x00\xB0\x00", 0x0000, 0x0, lc3.Flag_Z},
 			{"ADD R7, R4, #-1 + STI R7, x3003", "\x1F\x3F\xBE\x01\x00\x00\x12\x34", 0x1234, 0xFFFF, lc3.Flag_N},
+
+			{"NOP + STR R0, R0, #0", "\x00\x00\x70\x00", 0x0000, 0x0, lc3.Flag_Z},
+			{"ADD R7, R4, #8 + STR R7, R0, #1", "\x1F\x28\x7E\x12", 0x0012, 0x0008, lc3.Flag_P},
 		}
 
 		for _, test := range testCases {
