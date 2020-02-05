@@ -194,6 +194,37 @@ func TestVM(t *testing.T) {
 		assertRegister(t, vm, lc3.Register_PC, 0x3001)
 	})
 
+	t.Run("test GETC trap", func(t *testing.T) {
+		program := strings.NewReader("\x30\x00\xf0\x20")
+		want := 'O'
+		input := strings.NewReader(string(want))
+
+		vm, err := lc3.NewVM(program, input, nil)
+		assertError(t, err, nil)
+		// To make sure that top bytes are also cleared.
+		vm.SetRegister(lc3.Register_R0, 0x1234)
+
+		err = vm.Step()
+		assertError(t, err, nil)
+		assertState(t, vm.State(), lc3.StateRunning)
+		assertRegister(t, vm, lc3.Register_PC, 0x3001)
+		assertRegister(t, vm, lc3.Register_R0, uint16(want))
+	})
+
+	t.Run("test OUT trap", func(t *testing.T) {
+		program := strings.NewReader("\x30\x00\xf0\x21")
+		want := byte(0x41)
+
+		output := bytes.NewBuffer([]byte{})
+		vm, err := lc3.NewVM(program, nil, output)
+		assertError(t, err, nil)
+		vm.SetRegister(lc3.Register_R0, uint16(want))
+
+		err = vm.Step()
+		assertError(t, err, nil)
+		assertString(t, output.String(), string([]byte{0x41}))
+	})
+
 	t.Run("execute hello-world.obj program", func(t *testing.T) {
 		f, closer := openTestfile(t, "testdata/hello-world.obj")
 		defer closer()
@@ -224,35 +255,34 @@ func TestVM(t *testing.T) {
 		assertState(t, vm.State(), lc3.StateHalted)
 	})
 
-	t.Run("test GETC trap", func(t *testing.T) {
-		program := strings.NewReader("\x30\x00\xf0\x20")
-		want := 'O'
-		input := strings.NewReader(string(want))
+	t.Run("execute loop.obj program", func(t *testing.T) {
+		f, closer := openTestfile(t, "testdata/loop.obj")
+		defer closer()
 
-		vm, err := lc3.NewVM(program, input, nil)
+		vm, err := lc3.NewVM(f, nil, nil)
 		assertError(t, err, nil)
-		// To make sure that top bytes are also cleared.
-		vm.SetRegister(lc3.Register_R0, 0x1234)
 
-		err = vm.Step()
+		err = vm.Run()
 		assertError(t, err, nil)
-		assertState(t, vm.State(), lc3.StateRunning)
-		assertRegister(t, vm, lc3.Register_PC, 0x3001)
-		assertRegister(t, vm, lc3.Register_R0, uint16(want))
+		assertRegister(t, vm, lc3.Register_PC, 0x3005)
+		assertRegister(t, vm, lc3.Register_R0, 10)
+		assertRegister(t, vm, lc3.Register_R1, 0)
+		assertRegister(t, vm, lc3.Register_COND, lc3.Flag_Z)
+		assertState(t, vm.State(), lc3.StateHalted)
 	})
 
-	t.Run("test OUT trap", func(t *testing.T) {
-		program := strings.NewReader("\x30\x00\xf0\x21")
-		want := byte(0x41)
+	t.Run("execute reverse-string.obj program", func(t *testing.T) {
+		f, closer := openTestfile(t, "testdata/reverse-string.obj")
+		defer closer()
 
 		output := bytes.NewBuffer([]byte{})
-		vm, err := lc3.NewVM(program, nil, output)
+		vm, err := lc3.NewVM(f, nil, output)
 		assertError(t, err, nil)
-		vm.SetRegister(lc3.Register_R0, uint16(want))
 
-		err = vm.Step()
+		err = vm.Run()
 		assertError(t, err, nil)
-		assertString(t, output.String(), string([]byte{0x41}))
+		assertString(t, "4321DCBA", output.String())
+		assertState(t, vm.State(), lc3.StateHalted)
 	})
 }
 
