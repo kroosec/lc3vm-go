@@ -71,14 +71,17 @@ func TestVM(t *testing.T) {
 			{"LEA R7, x3001", "\xEE\x00", 1, lc3.Register_R7, 0x3001, lc3.Flag_P},
 
 			{"NOT R0, R0", "\x90\x3f", 1, lc3.Register_R0, 0xffff, lc3.Flag_N},
+			{"LEA R3, x3039 + NOT R3, R1", "\xE6\x38\x96\xFF", 2, lc3.Register_R3, 0xCFC6, lc3.Flag_N},
 
 			{"ADD R0, R0, R0", "\x10\x00", 1, lc3.Register_R0, 0x0000, lc3.Flag_Z},
 			{"ADD R0, R0, #0", "\x10\x20", 1, lc3.Register_R0, 0x0000, lc3.Flag_Z},
 			{"ADD R3, R2, #5", "\x16\x25", 1, lc3.Register_R3, 0x0005, lc3.Flag_P},
 			{"ADD R5, R4, #-11", "\x1B\x35", 1, lc3.Register_R5, 0xfff5, lc3.Flag_N},
+			{"ADD R7, R0, #-14 + ADD R3, R0, R7", "\x1E\x32\x16\x07", 2, lc3.Register_R3, 0xfff2, lc3.Flag_N},
 
 			{"AND R0, R0, R0", "\x50\x00", 1, lc3.Register_R0, 0x0000, lc3.Flag_Z},
 			{"AND R3, R7, #-22", "\x57\xEA", 1, lc3.Register_R3, 0x0000, lc3.Flag_Z},
+			{"ADD R7, R0, #-14 + AND R3, R7, R7", "\x1E\x32\x57\xC7", 2, lc3.Register_R3, 0xfff2, lc3.Flag_N},
 
 			{"JMP R3", "\xC0\x00", 1, lc3.Register_PC, 0x0000, lc3.Flag_Z},
 			{"RET (JMP R7)", "\xC1\xC0", 1, lc3.Register_PC, 0x0000, lc3.Flag_Z},

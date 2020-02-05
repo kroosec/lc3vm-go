@@ -234,7 +234,7 @@ func (v *VM) execAdd(inst uint16) {
 	source1 := Register((inst >> 6) & 0x7)
 
 	var value uint16
-	if inst&0x32 == 0 {
+	if inst&0x0020 == 0 {
 		source2 := Register(inst & 0x7)
 
 		value = v.GetRegister(source2)
@@ -251,7 +251,7 @@ func (v *VM) execAnd(inst uint16) {
 	source1 := Register((inst >> 6) & 0x7)
 
 	var value uint16
-	if inst&0x32 == 0 {
+	if inst&0x0020 == 0 {
 		source2 := Register(inst & 0x7)
 
 		value = v.GetRegister(source2)
@@ -267,7 +267,7 @@ func (v *VM) execNot(inst uint16) {
 	// XXX: Check trailing 1's ?
 	destination := Register((inst >> 9) & 0x7)
 	source := Register((inst >> 6) & 0x7)
-	value := v.GetRegister(source) | 0xffff
+	value := v.GetRegister(source) ^ 0xffff
 
 	v.SetRegister(destination, value)
 	v.updateFlags(destination)
@@ -379,7 +379,7 @@ func (v *VM) execLoadEffectiveAddress(inst uint16) {
 	offset := signExtend(inst, 9)
 	reg := Register((inst >> 9) & 0x7)
 
-	v.incrementRegister(reg, v.GetRegister(Register_PC)+offset+1)
+	v.SetRegister(reg, v.GetRegister(Register_PC)+offset+1)
 	v.updateFlags(reg)
 }
 
