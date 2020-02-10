@@ -1,6 +1,7 @@
 package lc3
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"os"
@@ -9,6 +10,9 @@ import (
 const (
 	UserMemoryLimit = uint16(0xfdff)
 	MemorySize      = int(1 << 16)
+
+	Memory_KBSR = uint16(0xFE00)
+	Memory_KBDR = uint16(0xFE02)
 )
 
 type Register uint8
@@ -110,11 +114,24 @@ type VM struct {
 	memory    [MemorySize]uint16
 	registers [Register_COUNT]uint16
 	output    io.Writer
-	input     io.Reader
+	input     *bufio.Reader
 	state     uint8
 }
 
 func (v *VM) GetMemory(address uint16) uint16 {
+	if address == Memory_KBSR {
+		v.memory[Memory_KBSR] = 0
+		if v.peekChar() {
+			char, err := v.getChar()
+			if err != nil {
+				panic(fmt.Sprintf("peeked char, but couldn't read it: %v", err))
+			}
+
+			v.memory[Memory_KBSR] = (1 << 15)
+			v.memory[Memory_KBDR] = uint16(char)
+		}
+	}
+
 	return v.memory[address]
 }
 
@@ -129,7 +146,7 @@ func NewVM(program io.Reader, input io.Reader, output io.Writer) (*VM, error) {
 	if input == nil {
 		input = os.Stdin
 	}
-	vm := &VM{input: input, output: output, state: StateRunning}
+	vm := &VM{input: bufio.NewReader(input), output: output, state: StateRunning}
 
 	// .ORIG / Start address.
 	if err := vm.readStart(program); err != nil {
@@ -168,7 +185,7 @@ func (v *VM) Run() error {
 }
 
 func (v *VM) execInstruction() {
-	inst := v.memory[v.GetRegister(Register_PC)]
+	inst := v.GetMemory(v.GetRegister(Register_PC))
 	op := uint8((inst & 0xf000) >> 12)
 
 	switch op {
@@ -336,13 +353,27 @@ func (v *VM) execTrap(inst uint16) {
 	}
 }
 
+func (v *VM) peekChar() bool {
+	// XXX: Blocks.
+	_, err := v.input.Peek(1)
+	return err == nil
+}
+
 func (v *VM) trapGetc() {
+	char, err := v.getChar()
+	if err != nil {
+		panic(fmt.Sprintf("Couldn't read input: %v", err))
+	}
+	v.SetRegister(Register_R0, uint16(char))
+}
+
+func (v *VM) getChar() (byte, error) {
 	char := make([]byte, 1)
 	n, err := v.input.Read(char)
 	if n == 0 || err != nil {
-		panic(fmt.Sprintf("Couldn't read a char: %v", err))
+		return 0, err
 	}
-	v.SetRegister(Register_R0, uint16(char[0]))
+	return char[0], nil
 }
 
 func (v *VM) trapOut() {

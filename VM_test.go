@@ -284,6 +284,21 @@ func TestVM(t *testing.T) {
 		assertString(t, "4321DCBA", output.String())
 		assertState(t, vm.State(), lc3.StateHalted)
 	})
+
+	t.Run("test KBSR/KBDR memory registers", func(t *testing.T) {
+		program := strings.NewReader("\x30\x00")
+		want := 'A'
+		input := strings.NewReader(string(want))
+
+		vm, err := lc3.NewVM(program, input, nil)
+		assertError(t, err, nil)
+
+		// On memory read, KBSR highest-bit is set, KBDR contains wanted character.
+		assertMemory(t, vm, lc3.Memory_KBSR, 0x8000)
+		assertMemory(t, vm, lc3.Memory_KBDR, uint16(want))
+		// Nothing more to read.
+		assertMemory(t, vm, lc3.Memory_KBSR, 0x0000)
+	})
 }
 
 func assertInitVM(t *testing.T, vm *lc3.VM, pc uint16) {
