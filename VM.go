@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"log"
 	"os"
 )
 
@@ -124,7 +125,7 @@ func (v *VM) GetMemory(address uint16) uint16 {
 		if v.peekChar() {
 			char, err := v.getChar()
 			if err != nil {
-				panic(fmt.Sprintf("peeked char, but couldn't read it: %v", err))
+				log.Fatalf("peeked char, but couldn't read it: %v", err)
 			}
 
 			v.memory[Memory_KBSR] = (1 << 15)
@@ -216,7 +217,7 @@ func (v *VM) execInstruction() {
 	case Operation_STR:
 		v.execStoreRegister(inst)
 	case Operation_RTI, Operation_RES:
-		panic(fmt.Sprintf("Operation %q not implemented", opNames[op]))
+		log.Fatalf("Operation %q not implemented", opNames[op])
 	case Operation_TRAP:
 		v.execTrap(inst)
 	}
@@ -349,7 +350,7 @@ func (v *VM) execTrap(inst uint16) {
 	case Trap_HALT:
 		v.trapHalt()
 	default:
-		panic(fmt.Sprintf("Trap 0x%x not implemented", trap))
+		log.Fatalf("Trap 0x%x not implemented", trap)
 	}
 }
 
@@ -362,7 +363,7 @@ func (v *VM) peekChar() bool {
 func (v *VM) trapGetc() {
 	char, err := v.getChar()
 	if err != nil {
-		panic(fmt.Sprintf("Couldn't read input: %v", err))
+		log.Fatalf("Couldn't read input: %v", err)
 	}
 	v.SetRegister(Register_R0, uint16(char))
 }
@@ -378,7 +379,9 @@ func (v *VM) getChar() (byte, error) {
 
 func (v *VM) trapOut() {
 	char := v.GetRegister(Register_R0) & 0xff
-	v.output.Write([]byte{byte(char)})
+	if _, err := v.output.Write([]byte{byte(char)}); err != nil {
+		log.Fatalf("Couldn't write output %c: %v", char, err)
+	}
 }
 
 func (v *VM) trapHalt() {
@@ -403,7 +406,9 @@ func (v *VM) trapPuts() {
 		address++
 	}
 
-	v.output.Write(out)
+	if _, err := v.output.Write(out); err != nil {
+		log.Fatalf("Couldn't write output %v: %v", out, err)
+	}
 }
 
 func (v *VM) execLoadEffectiveAddress(inst uint16) {
