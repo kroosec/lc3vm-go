@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"log"
 	"os"
 )
 
@@ -12,83 +11,83 @@ const (
 	UserMemoryLimit = uint16(0xfdff)
 	MemorySize      = int(1 << 16)
 
-	Memory_KBSR = uint16(0xFE00)
-	Memory_KBDR = uint16(0xFE02)
+	MemoryKBSR = uint16(0xFE00)
+	MemoryKBDR = uint16(0xFE02)
 )
 
 type Register uint8
 
 const (
-	Register_R0 Register = iota
-	Register_R1
-	Register_R2
-	Register_R3
-	Register_R4
-	Register_R5
-	Register_R6
-	Register_R7
-	Register_PC
-	Register_COND
+	RegisterR0 Register = iota
+	RegisterR1
+	RegisterR2
+	RegisterR3
+	RegisterR4
+	RegisterR5
+	RegisterR6
+	RegisterR7
+	RegisterPC
+	RegisterCOND
 
-	Register_COUNT
+	RegisterCOUNT
 )
 
 var registerNames map[Register]string = map[Register]string{
-	Register_R0:   "R0",
-	Register_R1:   "R1",
-	Register_R2:   "R2",
-	Register_R3:   "R3",
-	Register_R4:   "R4",
-	Register_R5:   "R5",
-	Register_R6:   "R6",
-	Register_R7:   "R7",
-	Register_PC:   "PC",
-	Register_COND: "COND",
+	RegisterR0:   "R0",
+	RegisterR1:   "R1",
+	RegisterR2:   "R2",
+	RegisterR3:   "R3",
+	RegisterR4:   "R4",
+	RegisterR5:   "R5",
+	RegisterR6:   "R6",
+	RegisterR7:   "R7",
+	RegisterPC:   "PC",
+	RegisterCOND: "COND",
 }
 
 func (reg Register) String() string {
-	if reg >= Register_COUNT {
+	if reg >= RegisterCOUNT {
 		return "INVALID"
 	}
 	return registerNames[reg]
 }
 
 const (
-	Operation_BR = iota
-	Operation_ADD
-	Operation_LD
-	Operation_ST
-	Operation_JSR
-	Operation_AND
-	Operation_LDR
-	Operation_STR
-	Operation_RTI
-	Operation_NOT
-	Operation_LDI
-	Operation_STI
-	Operation_JMP
-	Operation_RES
-	Operation_LEA
-	Operation_TRAP
+	OperationBR = iota
+	OperationADD
+	OperationLD
+	OperationST
+	OperationJSR
+	OperationAND
+	OperationLDR
+	OperationSTR
+	OperationRTI
+	OperationNOT
+	OperationLDI
+	OperationSTI
+	OperationJMP
+	OperationRES
+	OperationLEA
+	OperationTRAP
 )
 
 var opNames map[uint8]string = map[uint8]string{
-	Operation_BR:   "BR",
-	Operation_ADD:  "ADD",
-	Operation_LD:   "LD",
-	Operation_ST:   "ST",
-	Operation_JSR:  "JSR",
-	Operation_AND:  "AND",
-	Operation_LDR:  "LDR",
-	Operation_STR:  "STR",
-	Operation_RTI:  "RTI",
-	Operation_NOT:  "NOT",
-	Operation_LDI:  "LDI",
-	Operation_STI:  "STI",
-	Operation_JMP:  "JMP",
-	Operation_RES:  "RES",
-	Operation_LEA:  "LEA",
-	Operation_TRAP: "TRAP",
+	OperationBR:   "BR",
+	OperationADD:  "ADD",
+	OperationLD:   "LD",
+	OperationST:   "ST",
+	OperationJSR:  "JSR",
+	OperationAND:  "AND",
+	OperationLDR:  "LDR",
+	OperationSTR:  "STR",
+	OperationRTI:  "RTI",
+	OperationNOT:  "NOT",
+	OperationLDI:  "LDI",
+	OperationSTI:  "STI",
+	OperationJMP:  "JMP",
+	OperationRES:  "RES",
+	OperationLEA:  "LEA",
+	OperationTRAP: "TRAP",
 }
 
 const (
@@ -113,27 +112,27 @@ var stateNames map[uint8]string = map[uint8]string{StateRunning: "Running", Stat
 
 type VM struct {
 	memory    [MemorySize]uint16
-	registers [Register_COUNT]uint16
+	registers [RegisterCOUNT]uint16
 	output    io.Writer
 	input     *bufio.Reader
 	state     uint8
 }
 
-func (v *VM) GetMemory(address uint16) uint16 {
-	if address == Memory_KBSR {
-		v.memory[Memory_KBSR] = 0
+func (v *VM) GetMemory(address uint16) (uint16, error) {
+	if address == MemoryKBSR {
+		v.memory[MemoryKBSR] = 0
 		if v.peekChar() {
 			char, err := v.getChar()
 			if err != nil {
-				log.Fatalf("peeked char, but couldn't read it: %v", err)
+				return 0, fmt.Errorf("peeked char, but couldn't read it: %v", err)
 			}
 
-			v.memory[Memory_KBSR] = (1 << 15)
-			v.memory[Memory_KBDR] = uint16(char)
+			v.memory[MemoryKBSR] = (1 << 15)
+			v.memory[MemoryKBDR] = uint16(char)
 		}
 	}
 
-	return v.memory[address]
+	return v.memory[address], nil
 }
 
 func (v *VM) GetRegister(reg Register) uint16 {
@@ -158,7 +157,7 @@ func NewVM(program io.Reader, input io.Reader, output io.Writer) (*VM, error) {
 		return nil, err
 	}
 
-	vm.registers[Register_COND] = Flag_Z
+	vm.registers[RegisterCOND] = Flag_Z
 
 	return vm, nil
 }
@@ -172,8 +171,7 @@ func (v *VM) Step() error {
 		return fmt.Errorf("VM State: %s", stateNames[v.state])
 	}
 
-	v.execInstruction()
-	return nil
+	return v.execInstruction()
 }
 
 func (v *VM) Run() error {
@@ -185,50 +183,68 @@ func (v *VM) Run() error {
 	return nil
 }
 
-func (v *VM) execInstruction() {
-	inst := v.GetMemory(v.GetRegister(Register_PC))
+func (v *VM) execInstruction() error {
+	inst, err := v.GetMemory(v.GetRegister(RegisterPC))
+	if err != nil {
+		return err
+	}
 	op := uint8((inst & 0xf000) >> 12)
 
 	switch op {
-	case Operation_ADD:
+	case OperationADD:
 		v.execAdd(inst)
-	case Operation_AND:
+	case OperationAND:
 		v.execAnd(inst)
-	case Operation_BR:
+	case OperationBR:
 		v.execBreak(inst)
-	case Operation_JMP:
+	case OperationJMP:
 		v.execJump(inst)
-	case Operation_JSR:
+	case OperationJSR:
 		v.execJumpSubroutine(inst)
-	case Operation_LD:
-		v.execLoad(inst, false)
-	case Operation_LDI:
-		v.execLoad(inst, true)
-	case Operation_LDR:
-		v.execLoadRegister(inst)
-	case Operation_LEA:
+	case OperationLD:
+		if err := v.execLoad(inst, false); err != nil {
+			return err
+		}
+	case OperationLDI:
+		if err := v.execLoad(inst, true); err != nil {
+			return err
+		}
+	case OperationLDR:
+		if err := v.execLoadRegister(inst); err != nil {
+			return err
+		}
+	case OperationLEA:
 		v.execLoadEffectiveAddress(inst)
-	case Operation_NOT:
+	case OperationNOT:
 		v.execNot(inst)
-	case Operation_ST:
-		v.execStore(inst, false)
-	case Operation_STI:
-		v.execStore(inst, true)
-	case Operation_STR:
-		v.execStoreRegister(inst)
-	case Operation_RTI, Operation_RES:
-		log.Fatalf("Operation %q not implemented", opNames[op])
-	case Operation_TRAP:
-		v.execTrap(inst)
+	case OperationST:
+		if err := v.execStore(inst, false); err != nil {
+			return err
+		}
+	case OperationSTI:
+		if err := v.execStore(inst, true); err != nil {
+			return err
+		}
+	case OperationSTR:
+		if err := v.execStoreRegister(inst); err != nil {
+			return err
+		}
+	case OperationRTI, OperationRES:
+		return fmt.Errorf("Operation %q not implemented", opNames[op])
+	case OperationTRAP:
+		if err := v.execTrap(inst); err != nil {
+			return err
+		}
 	}
 
 	if doIncrementPC(op) {
-		v.incrementRegister(Register_PC, 1)
+		v.incrementRegister(RegisterPC, 1)
 	}
+	return nil
 }
 
 func doIncrementPC(op uint8) bool {
-	return op != Operation_JMP && op != Operation_JSR
+	return op != OperationJMP && op != OperationJSR
 }
 
 func (v *VM) updateFlags(reg Register) {
@@ -240,7 +256,7 @@ func (v *VM) updateFlags(reg Register) {
 	} else if value>>15 == 1 {
 		flags = Flag_N
 	}
-	v.SetRegister(Register_COND, flags)
+	v.SetRegister(RegisterCOND, flags)
 }
 
 func (v *VM) SetRegister(reg Register, value uint16) {
@@ -291,67 +307,91 @@ func (v *VM) execNot(inst uint16) {
 	v.updateFlags(destination)
 }
 
-func (v *VM) execLoad(inst uint16, indirect bool) {
+func (v *VM) execLoad(inst uint16, indirect bool) error {
 	destination := Register((inst >> 9) & 0x7)
 	offset := signExtend(inst, 9)
-	value := v.GetMemory(v.GetRegister(Register_PC) + offset + 1)
+	value, err := v.GetMemory(v.GetRegister(RegisterPC) + offset + 1)
+	if err != nil {
+		return err
+	}
 	if indirect {
-		value = v.GetMemory(value)
+		value, err = v.GetMemory(value)
+		if err != nil {
+			return err
+		}
 	}
 
 	v.SetRegister(destination, value)
 	v.updateFlags(destination)
+	return nil
 }
 
-func (v *VM) execStore(inst uint16, indirect bool) {
+func (v *VM) execStore(inst uint16, indirect bool) error {
 	source := Register((inst >> 9) & 0x7)
 	offset := signExtend(inst, 9)
-	address := v.GetRegister(Register_PC) + offset + 1
+	address := v.GetRegister(RegisterPC) + offset + 1
 	if indirect {
-		address = v.GetMemory(address)
+		var err error
+		address, err = v.GetMemory(address)
+		if err != nil {
+			return err
+		}
 	}
 
 	v.SetMemory(address, v.GetRegister(source))
+	return nil
 }
 
-func (v *VM) execStoreRegister(inst uint16) {
+func (v *VM) execStoreRegister(inst uint16) error {
 	source := Register((inst >> 9) & 0x7)
 	base := Register((inst >> 6) & 0x7)
 	offset := signExtend(inst, 6)
 	address := v.GetRegister(base) + offset
 
 	v.SetMemory(address, v.GetRegister(source))
+	return nil
 }
 
 func (v *VM) SetMemory(address uint16, value uint16) {
 	v.memory[address] = value
 }
 
-func (v *VM) execLoadRegister(inst uint16) {
+func (v *VM) execLoadRegister(inst uint16) error {
 	destination := Register((inst >> 9) & 0x7)
 	base := Register((inst >> 6) & 0x7)
 	offset := signExtend(inst, 6)
-	value := v.GetMemory(v.GetRegister(base) + offset)
+	value, err := v.GetMemory(v.GetRegister(base) + offset)
+	if err != nil {
+		return err
+	}
 
 	v.SetRegister(destination, value)
 	v.updateFlags(destination)
+	return nil
 }
 
-func (v *VM) execTrap(inst uint16) {
+func (v *VM) execTrap(inst uint16) error {
 	trap := uint8(inst & 0x00ff)
 
 	switch trap {
 	case Trap_GETC:
-		v.trapGetc()
+		if err := v.trapGetc(); err != nil {
+			return err
+		}
 	case Trap_OUT:
-		v.trapOut()
+		if err := v.trapOut(); err != nil {
+			return err
+		}
 	case Trap_PUTS:
-		v.trapPuts()
+		if err := v.trapPuts(); err != nil {
+			return err
+		}
 	case Trap_HALT:
 		v.trapHalt()
 	default:
-		log.Fatalf("Trap 0x%x not implemented", trap)
+		return fmt.Errorf("Trap 0x%x not implemented", trap)
 	}
+	return nil
 }
 
 func (v *VM) peekChar() bool {
@@ -360,12 +400,13 @@ func (v *VM) peekChar() bool {
 	return err == nil
 }
 
-func (v *VM) trapGetc() {
+func (v *VM) trapGetc() error {
 	char, err := v.getChar()
 	if err != nil {
-		log.Fatalf("Couldn't read input: %v", err)
+		return fmt.Errorf("Couldn't read input: %v", err)
 	}
-	v.SetRegister(Register_R0, uint16(char))
+	v.SetRegister(RegisterR0, uint16(char))
+	return nil
 }
 
 func (v *VM) getChar() (byte, error) {
@@ -377,24 +418,28 @@ func (v *VM) getChar() (byte, error) {
 	return char[0], nil
 }
 
-func (v *VM) trapOut() {
-	char := v.GetRegister(Register_R0) & 0xff
+func (v *VM) trapOut() error {
+	char := v.GetRegister(RegisterR0) & 0xff
 	if _, err := v.output.Write([]byte{byte(char)}); err != nil {
-		log.Fatalf("Couldn't write output %c: %v", char, err)
+		return fmt.Errorf("Couldn't write output %c: %v", char, err)
 	}
+	return nil
 }
 
 func (v *VM) trapHalt() {
 	v.state = StateHalted
 }
 
-func (v *VM) trapPuts() {
-	address := v.GetRegister(Register_R0)
+func (v *VM) trapPuts() error {
+	address := v.GetRegister(RegisterR0)
 
 	var out []byte
 	for {
 		// XXX: Validate that value is less or equal to 0xff too.
-		value := v.GetMemory(address)
+		value, err := v.GetMemory(address)
+		if err != nil {
+			return err
+		}
 		if value == 0 {
 			break
 		}
@@ -407,15 +452,16 @@ func (v *VM) trapPuts() {
 	}
 
 	if _, err := v.output.Write(out); err != nil {
-		log.Fatalf("Couldn't write output %v: %v", out, err)
+		return fmt.Errorf("Couldn't write output %v: %v", out, err)
 	}
+	return nil
 }
 
 func (v *VM) execLoadEffectiveAddress(inst uint16) {
 	offset := signExtend(inst, 9)
 	reg := Register((inst >> 9) & 0x7)
 
-	v.SetRegister(reg, v.GetRegister(Register_PC)+offset+1)
+	v.SetRegister(reg, v.GetRegister(RegisterPC)+offset+1)
 	v.updateFlags(reg)
 }
 
@@ -423,29 +469,29 @@ func (v *VM) execBreak(inst uint16) {
 	offset := signExtend(inst, 9)
 	flags := (inst >> 9) & 0x7
 
-	if v.registers[Register_COND]&flags != 0 {
-		v.incrementRegister(Register_PC, offset)
+	if v.registers[RegisterCOND]&flags != 0 {
+		v.incrementRegister(RegisterPC, offset)
 	}
 }
 
 func (v *VM) execJump(inst uint16) {
 	baseRegister := Register((inst >> 6) & 0x7)
 
-	v.SetRegister(Register_PC, v.GetRegister(baseRegister))
+	v.SetRegister(RegisterPC, v.GetRegister(baseRegister))
 }
 
 func (v *VM) execJumpSubroutine(inst uint16) {
-	v.SetRegister(Register_R7, v.GetRegister(Register_PC)+1)
+	v.SetRegister(RegisterR7, v.GetRegister(RegisterPC)+1)
 
 	var destination uint16
 	if inst&0x800 == 0 {
 		baseRegister := Register((inst >> 6) & 0x7)
 		destination = v.GetRegister(baseRegister)
 	} else {
-		destination = v.GetRegister(Register_PC) + signExtend(inst, 11) + 1
+		destination = v.GetRegister(RegisterPC) + signExtend(inst, 11) + 1
 	}
 
-	v.SetRegister(Register_PC, destination)
+	v.SetRegister(RegisterPC, destination)
 }
 
 func (v *VM) incrementRegister(reg Register, value uint16) {
@@ -453,7 +499,7 @@ func (v *VM) incrementRegister(reg Register, value uint16) {
 }
 
 func (v *VM) readProgram(program io.Reader) error {
-	address := v.GetRegister(Register_PC)
+	address := v.GetRegister(RegisterPC)
 
 	for {
 		value, err := readValue(program)
@@ -479,7 +525,7 @@ func (v *VM) readStart(program io.Reader) error {
 		return fmt.Errorf("Failed to read orig value from program: %v", err)
 	}
 
-	v.registers[Register_PC] = pc
+	v.registers[RegisterPC] = pc
 	return nil
 }
 

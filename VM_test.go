@@ -42,7 +42,7 @@ func TestVM(t *testing.T) {
 
 		vm, err := lc3.NewVM(program, nil, nil)
 		assertError(t, err, nil)
-		assertRegister(t, vm, lc3.Register_PC, start)
+		assertRegister(t, vm, lc3.RegisterPC, start)
 		assertMemory(t, vm, start, 0x1234)
 	})
 
@@ -57,50 +57,50 @@ func TestVM(t *testing.T) {
 			value       uint16
 			flag        uint16
 		}{
-			{"NOP", "\x00\x00", 1, lc3.Register_PC, 0x3001, lc3.Flag_Z},
+			{"NOP", "\x00\x00", 1, lc3.RegisterPC, 0x3001, lc3.Flag_Z},
 
-			{"BRp x3001", "\x02\x12", 1, lc3.Register_PC, 0x3001, lc3.Flag_Z},
-			{"BRz x3013", "\x04\x12", 1, lc3.Register_PC, 0x3013, lc3.Flag_Z},
-			{"BRzp x3008", "\x06\x07", 1, lc3.Register_PC, 0x3008, lc3.Flag_Z},
+			{"BRp x3001", "\x02\x12", 1, lc3.RegisterPC, 0x3001, lc3.Flag_Z},
+			{"BRz x3013", "\x04\x12", 1, lc3.RegisterPC, 0x3013, lc3.Flag_Z},
+			{"BRzp x3008", "\x06\x07", 1, lc3.RegisterPC, 0x3008, lc3.Flag_Z},
 
-			{"BRz x2f03", "\x05\x02", 1, lc3.Register_PC, 0x2f03, lc3.Flag_Z},
-			{"BRn x2f34", "\x09\x33", 1, lc3.Register_PC, 0x3001, lc3.Flag_Z},
+			{"BRz x2f03", "\x05\x02", 1, lc3.RegisterPC, 0x2f03, lc3.Flag_Z},
+			{"BRn x2f34", "\x09\x33", 1, lc3.RegisterPC, 0x3001, lc3.Flag_Z},
 
-			{"LEA R0, x3003", "\xE0\x02", 1, lc3.Register_R0, 0x3003, lc3.Flag_P},
-			{"LEA R1, x2F35", "\xE3\x34", 1, lc3.Register_R1, 0x2F35, lc3.Flag_P},
-			{"LEA R7, x3001", "\xEE\x00", 1, lc3.Register_R7, 0x3001, lc3.Flag_P},
+			{"LEA R0, x3003", "\xE0\x02", 1, lc3.RegisterR0, 0x3003, lc3.Flag_P},
+			{"LEA R1, x2F35", "\xE3\x34", 1, lc3.RegisterR1, 0x2F35, lc3.Flag_P},
+			{"LEA R7, x3001", "\xEE\x00", 1, lc3.RegisterR7, 0x3001, lc3.Flag_P},
 
-			{"NOT R0, R0", "\x90\x3f", 1, lc3.Register_R0, 0xffff, lc3.Flag_N},
-			{"LEA R3, x3039 + NOT R3, R1", "\xE6\x38\x96\xFF", 2, lc3.Register_R3, 0xCFC6, lc3.Flag_N},
+			{"NOT R0, R0", "\x90\x3f", 1, lc3.RegisterR0, 0xffff, lc3.Flag_N},
+			{"LEA R3, x3039 + NOT R3, R1", "\xE6\x38\x96\xFF", 2, lc3.RegisterR3, 0xCFC6, lc3.Flag_N},
 
-			{"ADD R0, R0, R0", "\x10\x00", 1, lc3.Register_R0, 0x0000, lc3.Flag_Z},
-			{"ADD R0, R0, #0", "\x10\x20", 1, lc3.Register_R0, 0x0000, lc3.Flag_Z},
-			{"ADD R3, R2, #5", "\x16\x25", 1, lc3.Register_R3, 0x0005, lc3.Flag_P},
-			{"ADD R5, R4, #-11", "\x1B\x35", 1, lc3.Register_R5, 0xfff5, lc3.Flag_N},
-			{"ADD R7, R0, #-14 + ADD R3, R0, R7", "\x1E\x32\x16\x07", 2, lc3.Register_R3, 0xfff2, lc3.Flag_N},
+			{"ADD R0, R0, R0", "\x10\x00", 1, lc3.RegisterR0, 0x0000, lc3.Flag_Z},
+			{"ADD R0, R0, #0", "\x10\x20", 1, lc3.RegisterR0, 0x0000, lc3.Flag_Z},
+			{"ADD R3, R2, #5", "\x16\x25", 1, lc3.RegisterR3, 0x0005, lc3.Flag_P},
+			{"ADD R5, R4, #-11", "\x1B\x35", 1, lc3.RegisterR5, 0xfff5, lc3.Flag_N},
+			{"ADD R7, R0, #-14 + ADD R3, R0, R7", "\x1E\x32\x16\x07", 2, lc3.RegisterR3, 0xfff2, lc3.Flag_N},
 
-			{"AND R0, R0, R0", "\x50\x00", 1, lc3.Register_R0, 0x0000, lc3.Flag_Z},
-			{"AND R3, R7, #-22", "\x57\xEA", 1, lc3.Register_R3, 0x0000, lc3.Flag_Z},
-			{"ADD R7, R0, #-14 + AND R3, R7, R7", "\x1E\x32\x57\xC7", 2, lc3.Register_R3, 0xfff2, lc3.Flag_N},
+			{"AND R0, R0, R0", "\x50\x00", 1, lc3.RegisterR0, 0x0000, lc3.Flag_Z},
+			{"AND R3, R7, #-22", "\x57\xEA", 1, lc3.RegisterR3, 0x0000, lc3.Flag_Z},
+			{"ADD R7, R0, #-14 + AND R3, R7, R7", "\x1E\x32\x57\xC7", 2, lc3.RegisterR3, 0xfff2, lc3.Flag_N},
 
-			{"JMP R3", "\xC0\x00", 1, lc3.Register_PC, 0x0000, lc3.Flag_Z},
-			{"RET (JMP R7)", "\xC1\xC0", 1, lc3.Register_PC, 0x0000, lc3.Flag_Z},
-			{"ADD R5 R4 #-15 + JMP R5", "\x1B\x31\xC1\x40", 2, lc3.Register_PC, 0xfff1, lc3.Flag_N},
+			{"JMP R3", "\xC0\x00", 1, lc3.RegisterPC, 0x0000, lc3.Flag_Z},
+			{"RET (JMP R7)", "\xC1\xC0", 1, lc3.RegisterPC, 0x0000, lc3.Flag_Z},
+			{"ADD R5 R4 #-15 + JMP R5", "\x1B\x31\xC1\x40", 2, lc3.RegisterPC, 0xfff1, lc3.Flag_N},
 
-			{"JSR x3001", "\x48\x00", 1, lc3.Register_PC, 0x3001, lc3.Flag_Z},
-			{"JSRR R0; check R7", "\x40\x00", 1, lc3.Register_R7, 0x3001, lc3.Flag_Z},
-			{"JSRR R0; check PC", "\x40\x00", 1, lc3.Register_PC, 0x0000, lc3.Flag_Z},
-			{"ADD R3, R3, #14 + JSRR R3", "\x16\xEE\x40\xC0", 2, lc3.Register_PC, 0x000E, lc3.Flag_P},
+			{"JSR x3001", "\x48\x00", 1, lc3.RegisterPC, 0x3001, lc3.Flag_Z},
+			{"JSRR R0; check R7", "\x40\x00", 1, lc3.RegisterR7, 0x3001, lc3.Flag_Z},
+			{"JSRR R0; check PC", "\x40\x00", 1, lc3.RegisterPC, 0x0000, lc3.Flag_Z},
+			{"ADD R3, R3, #14 + JSRR R3", "\x16\xEE\x40\xC0", 2, lc3.RegisterPC, 0x000E, lc3.Flag_P},
 
-			{"LD R0, x3001", "\x20\x00", 1, lc3.Register_R0, 0x0000, lc3.Flag_Z},
-			{"LD R5, x3003", "\x2A\x02\x00\x00\x00\x00\x01\x23", 1, lc3.Register_R5, 0x0123, lc3.Flag_P},
-			{"LD R0, x2F06", "\x21\x05", 1, lc3.Register_R0, 0x1234, lc3.Flag_P},
+			{"LD R0, x3001", "\x20\x00", 1, lc3.RegisterR0, 0x0000, lc3.Flag_Z},
+			{"LD R5, x3003", "\x2A\x02\x00\x00\x00\x00\x01\x23", 1, lc3.RegisterR5, 0x0123, lc3.Flag_P},
+			{"LD R0, x2F06", "\x21\x05", 1, lc3.RegisterR0, 0x1234, lc3.Flag_P},
 
-			{"LDI R6, x3001", "\xA6\x00\x00\x00", 1, lc3.Register_R3, 0x0000, lc3.Flag_Z},
-			{"LDI R8, x3002", "\xA8\x01\x00\x15\x30\x01", 1, lc3.Register_R4, 0x0015, lc3.Flag_P},
+			{"LDI R6, x3001", "\xA6\x00\x00\x00", 1, lc3.RegisterR3, 0x0000, lc3.Flag_Z},
+			{"LDI R8, x3002", "\xA8\x01\x00\x15\x30\x01", 1, lc3.RegisterR4, 0x0015, lc3.Flag_P},
 
-			{"LDR R0, R0, #0", "\x60\x00", 1, lc3.Register_R0, 0x0000, lc3.Flag_Z},
-			{"LEA R1, x3002 + LDR R4, R1, #1", "\xE2\x01\x68\x41\x00\x00\xFF\xFF", 2, lc3.Register_R4, 0xFFFF, lc3.Flag_N},
+			{"LDR R0, R0, #0", "\x60\x00", 1, lc3.RegisterR0, 0x0000, lc3.Flag_Z},
+			{"LEA R1, x3002 + LDR R4, R1, #1", "\xE2\x01\x68\x41\x00\x00\xFF\xFF", 2, lc3.RegisterR4, 0xFFFF, lc3.Flag_N},
 		}
 
 		for _, test := range testCases {
@@ -117,7 +117,7 @@ func TestVM(t *testing.T) {
 				}
 
 				assertRegister(t, vm, test.reg, test.value)
-				assertRegister(t, vm, lc3.Register_COND, test.flag)
+				assertRegister(t, vm, lc3.RegisterCOND, test.flag)
 			})
 		}
 	})
@@ -153,7 +153,7 @@ func TestVM(t *testing.T) {
 				assertError(t, err, nil)
 
 				assertMemory(t, vm, test.memory, test.value)
-				assertRegister(t, vm, lc3.Register_COND, test.flag)
+				assertRegister(t, vm, lc3.RegisterCOND, test.flag)
 			})
 		}
 	})
@@ -172,7 +172,7 @@ func TestVM(t *testing.T) {
 		// PUTS (R0 == x3002 == "H\0")
 		err = vm.Step()
 		assertError(t, err, nil)
-		assertRegister(t, vm, lc3.Register_PC, 0x3002)
+		assertRegister(t, vm, lc3.RegisterPC, 0x3002)
 
 		assertString(t, "A", output.String())
 	})
@@ -186,12 +186,12 @@ func TestVM(t *testing.T) {
 		err = vm.Step()
 		assertError(t, err, nil)
 		assertState(t, vm.State(), lc3.StateHalted)
-		assertRegister(t, vm, lc3.Register_PC, 0x3001)
+		assertRegister(t, vm, lc3.RegisterPC, 0x3001)
 
 		// Can't step further
 		err = vm.Step()
 		assertIsError(t, err)
-		assertRegister(t, vm, lc3.Register_PC, 0x3001)
+		assertRegister(t, vm, lc3.RegisterPC, 0x3001)
 	})
 
 	t.Run("test GETC trap", func(t *testing.T) {
@@ -202,13 +202,13 @@ func TestVM(t *testing.T) {
 		vm, err := lc3.NewVM(program, input, nil)
 		assertError(t, err, nil)
 		// To make sure that top bytes are also cleared.
-		vm.SetRegister(lc3.Register_R0, 0x1234)
+		vm.SetRegister(lc3.RegisterR0, 0x1234)
 
 		err = vm.Step()
 		assertError(t, err, nil)
 		assertState(t, vm.State(), lc3.StateRunning)
-		assertRegister(t, vm, lc3.Register_PC, 0x3001)
-		assertRegister(t, vm, lc3.Register_R0, uint16(want))
+		assertRegister(t, vm, lc3.RegisterPC, 0x3001)
+		assertRegister(t, vm, lc3.RegisterR0, uint16(want))
 	})
 
 	t.Run("test OUT trap", func(t *testing.T) {
@@ -218,7 +218,7 @@ func TestVM(t *testing.T) {
 		output := bytes.NewBuffer([]byte{})
 		vm, err := lc3.NewVM(program, nil, output)
 		assertError(t, err, nil)
-		vm.SetRegister(lc3.Register_R0, uint16(want))
+		vm.SetRegister(lc3.RegisterR0, uint16(want))
 
 		err = vm.Step()
 		assertError(t, err, nil)
@@ -238,7 +238,7 @@ func TestVM(t *testing.T) {
 			0x0065, 0x006c, 0x006c, 0x006f,
 			0x0020, 0x0057, 0x006f, 0x0072,
 			0x006c, 0x0064, 0x0021, 0x0000}
-		assertRegister(t, vm, lc3.Register_PC, start)
+		assertRegister(t, vm, lc3.RegisterPC, start)
 		for i, value := range values {
 			assertMemory(t, vm, start+uint16(i), value)
 		}
@@ -248,9 +248,9 @@ func TestVM(t *testing.T) {
 		// HALT
 		err = vm.Run()
 		assertError(t, err, nil)
-		assertRegister(t, vm, lc3.Register_PC, start+3)
-		assertRegister(t, vm, lc3.Register_R0, 0x3003)
-		assertRegister(t, vm, lc3.Register_COND, lc3.Flag_P)
+		assertRegister(t, vm, lc3.RegisterPC, start+3)
+		assertRegister(t, vm, lc3.RegisterR0, 0x3003)
+		assertRegister(t, vm, lc3.RegisterCOND, lc3.Flag_P)
 		assertString(t, "Hello World!", output.String())
 		assertState(t, vm.State(), lc3.StateHalted)
 	})
@@ -264,10 +264,10 @@ func TestVM(t *testing.T) {
 
 		err = vm.Run()
 		assertError(t, err, nil)
-		assertRegister(t, vm, lc3.Register_PC, 0x3005)
-		assertRegister(t, vm, lc3.Register_R0, 10)
-		assertRegister(t, vm, lc3.Register_R1, 0)
-		assertRegister(t, vm, lc3.Register_COND, lc3.Flag_Z)
+		assertRegister(t, vm, lc3.RegisterPC, 0x3005)
+		assertRegister(t, vm, lc3.RegisterR0, 10)
+		assertRegister(t, vm, lc3.RegisterR1, 0)
+		assertRegister(t, vm, lc3.RegisterCOND, lc3.Flag_Z)
 		assertState(t, vm.State(), lc3.StateHalted)
 	})
 
@@ -294,10 +294,10 @@ func TestVM(t *testing.T) {
 		assertError(t, err, nil)
 
 		// On memory read, KBSR highest-bit is set, KBDR contains wanted character.
-		assertMemory(t, vm, lc3.Memory_KBSR, 0x8000)
-		assertMemory(t, vm, lc3.Memory_KBDR, uint16(want))
+		assertMemory(t, vm, lc3.MemoryKBSR, 0x8000)
+		assertMemory(t, vm, lc3.MemoryKBDR, uint16(want))
 		// Nothing more to read.
-		assertMemory(t, vm, lc3.Memory_KBSR, 0x0000)
+		assertMemory(t, vm, lc3.MemoryKBSR, 0x0000)
 	})
 }
 
@@ -309,10 +309,10 @@ func assertInitVM(t *testing.T, vm *lc3.VM, pc uint16) {
 		assertMemory(t, vm, uint16(i), 0)
 	}
 
-	for reg := lc3.Register_R0; reg < lc3.Register_COUNT; reg++ {
-		if reg == lc3.Register_PC {
+	for reg := lc3.RegisterR0; reg < lc3.RegisterCOUNT; reg++ {
+		if reg == lc3.RegisterPC {
 			assertRegister(t, vm, reg, pc)
-		} else if reg == lc3.Register_COND {
+		} else if reg == lc3.RegisterCOND {
 			assertRegister(t, vm, reg, lc3.Flag_Z)
 		} else {
 			assertRegister(t, vm, reg, 0)
@@ -348,7 +348,8 @@ func assertRegister(t *testing.T, vm *lc3.VM, reg lc3.Register, want uint16) {
 func assertMemory(t *testing.T, vm *lc3.VM, address, want uint16) {
 	t.Helper()
 
-	got := vm.GetMemory(address)
+	got, err := vm.GetMemory(address)
+	assertError(t, err, nil)
 	if got != want {
 		t.Fatalf("expected memory at 0x%x to have 0x%x, got 0x%x", address, want, got)
 	}
