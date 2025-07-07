@@ -183,6 +183,23 @@ func (v *VM) Run() error {
 	return nil
 }
 
+func (v *VM) execAdd(inst uint16) {
+	destination := Register((inst >> 9) & 0x7)
+	source1 := Register((inst >> 6) & 0x7)
+
+	var value uint16
+	if inst&0x0020 == 0 {
+		source2 := Register(inst & 0x7)
+
+		value = v.GetRegister(source2)
+	} else {
+		value = signExtend(inst, 5)
+	}
+
+	v.SetRegister(destination, v.GetRegister(source1)+value)
+	v.updateFlags(destination)
+}
+
 func (v *VM) execInstruction() error {
 	inst, err := v.GetMemory(v.GetRegister(RegisterPC))
 	if err != nil {
@@ -241,14 +258,17 @@ func (v *VM) execAnd(inst uint16) {
 	v.updateFlags(destination)
 }
 
-func (v *VM) execNot(inst uint16) {
-	// XXX: Check trailing 1's ?
+func (v *VM) execNot(inst uint16) error {
+	if inst&0x3f != 0x3f {
+		return fmt.Errorf("Invalid instruction: NOT bits 5-0 must be 1")
+	}
 	destination := Register((inst >> 9) & 0x7)
 	source := Register((inst >> 6) & 0x7)
 	value := v.GetRegister(source) ^ 0xffff
 
 	v.SetRegister(destination, value)
 	v.updateFlags(destination)
+	return nil
 }
 
 func (v *VM) execLoad(inst uint16, indirect bool) error {
@@ -400,7 +420,6 @@ func (v *VM) readProgram(program io.Reader) error {
 }
 
 func (v *VM) readStart(program io.Reader) error {
-	// XXX: Any restrictions on Program Counter value ?
 	pc, err := readValue(program)
 	if err != nil {
 		return fmt.Errorf("Failed to read orig value from program: %v", err)

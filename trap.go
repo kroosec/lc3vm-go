@@ -39,13 +39,16 @@ func (v *VM) trapPuts() error {
 
 	var out []byte
 	for {
-		// XXX: Validate that value is less or equal to 0xff too.
 		value, err := v.GetMemory(address)
 		if err != nil {
 			return err
 		}
 		if value == 0 {
 			break
+		}
+
+		if value > 0xff {
+			return fmt.Errorf("Invalid character in string: 0x%x", value)
 		}
 
 		out = append(out, byte(value))
@@ -62,7 +65,6 @@ func (v *VM) trapPuts() error {
 }
 
 func (v *VM) peekChar() bool {
-	// XXX: Blocks.
 	_, err := v.input.Peek(1)
 	return err == nil
 }

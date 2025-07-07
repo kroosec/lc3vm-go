@@ -12,27 +12,9 @@ var instructions = map[uint8]instruction{
 	OperationLDI:  func(v *VM, inst uint16) error { return v.execLoad(inst, true) },
 	OperationLDR:  (*VM).execLoadRegister,
 	OperationLEA:  func(v *VM, inst uint16) error { v.execLoadEffectiveAddress(inst); return nil },
-	OperationNOT:  func(v *VM, inst uint16) error { v.execNot(inst); return nil },
+	OperationNOT:  (*VM).execNot,
 	OperationST:   func(v *VM, inst uint16) error { return v.execStore(inst, false) },
 	OperationSTI:  func(v *VM, inst uint16) error { return v.execStore(inst, true) },
 	OperationSTR:  (*VM).execStoreRegister,
 	OperationTRAP: (*VM).execTrap,
 }
-
-func (v *VM) execAdd(inst uint16) {
-	destination := Register((inst >> 9) & 0x7)
-	source1 := Register((inst >> 6) & 0x7)
-
-	var value uint16
-	if inst&0x0020 == 0 {
-		source2 := Register(inst & 0x7)
-
-		value = v.GetRegister(source2)
-	} else {
-		value = signExtend(inst, 5)
-	}
-
-	v.SetRegister(destination, v.GetRegister(source1)+value)
-	v.updateFlags(destination)
-}
-

@@ -1,0 +1,24 @@
+name: Go CI
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: Build, Lint & Test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      uses: actions/setup-go@v5
+      with:
+        go-version: latest
+        cache: true
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v8
+      with:
+        version: latest
+
+    - name: Test
+      run: go test -v ./...
+
+    - name: Build
+      run: go build -v ./...

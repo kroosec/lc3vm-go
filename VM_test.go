@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	lc3 "github.com/kroosec/lc3vm-go"
 )
 
@@ -22,7 +23,7 @@ func TestVM(t *testing.T) {
 			t.Run(fmt.Sprintf("test case #%d", i), func(t *testing.T) {
 				program := strings.NewReader(test)
 				_, err := lc3.NewVM(program, nil, nil)
-				assertIsError(t, err)
+				assert.Error(t, err)
 			})
 		}
 	})
@@ -32,7 +33,7 @@ func TestVM(t *testing.T) {
 		program := strings.NewReader("\x30\x00")
 
 		vm, err := lc3.NewVM(program, nil, nil)
-		assertError(t, err, nil)
+		assert.NoError(t, err)
 		assertInitVM(t, vm, pc)
 	})
 
@@ -41,9 +42,11 @@ func TestVM(t *testing.T) {
 		program := strings.NewReader("\x30\x00\x12\x34")
 
 		vm, err := lc3.NewVM(program, nil, nil)
-		assertError(t, err, nil)
-		assertRegister(t, vm, lc3.RegisterPC, start)
-		assertMemory(t, vm, start, 0x1234)
+		assert.NoError(t, err)
+		assert.Equal(t, start, vm.GetRegister(lc3.RegisterPC))
+		val, err := vm.GetMemory(start)
+		assert.NoError(t, err)
+		assert.Equal(t, uint16(0x1234), val)
 	})
 
 	t.Run("test Simple instructions", func(t *testing.T) {
@@ -108,18 +111,28 @@ func TestVM(t *testing.T) {
 				program := strings.NewReader("\x30\x00" + test.instruction)
 
 				vm, err := lc3.NewVM(program, nil, nil)
-				assertError(t, err, nil)
+				assert.NoError(t, err)
 				vm.SetMemory(canaryAddress, canaryValue)
 
 				for i := 0; i < test.steps; i++ {
 					err = vm.Step()
-					assertError(t, err, nil)
+					assert.NoError(t, err)
 				}
 
-				assertRegister(t, vm, test.reg, test.value)
-				assertRegister(t, vm, lc3.RegisterCOND, test.flag)
+				assert.Equal(t, test.value, vm.GetRegister(test.reg))
+				assert.Equal(t, test.flag, vm.GetRegister(lc3.RegisterCOND))
 			})
 		}
+	})
+
+	t.Run("test NOT instruction with invalid trailing bits", func(t *testing.T) {
+		program := strings.NewReader("\x30\x00\x90\x00") // NOT R0, R0 with invalid trailing bits
+
+		vm, err := lc3.NewVM(program, nil, nil)
+		assert.NoError(t, err)
+
+		err = vm.Step()
+		assert.Error(t, err)
 	})
 
 	t.Run("test ST/STI/STR instructions", func(t *testing.T) {
@@ -145,15 +158,17 @@ func TestVM(t *testing.T) {
 				program := strings.NewReader("\x30\x00" + test.instruction)
 
 				vm, err := lc3.NewVM(program, nil, nil)
-				assertError(t, err, nil)
+				assert.NoError(t, err)
 
 				err = vm.Step()
-				assertError(t, err, nil)
+				assert.NoError(t, err)
 				err = vm.Step()
-				assertError(t, err, nil)
+				assert.NoError(t, err)
 
-				assertMemory(t, vm, test.memory, test.value)
-				assertRegister(t, vm, lc3.RegisterCOND, test.flag)
+				val, err := vm.GetMemory(test.memory)
+				assert.NoError(t, err)
+				assert.Equal(t, test.value, val)
+				assert.Equal(t, test.flag, vm.GetRegister(lc3.RegisterCOND))
 			})
 		}
 	})
@@ -163,35 +178,51 @@ func TestVM(t *testing.T) {
 
 		output := bytes.NewBuffer([]byte{})
 		vm, err := lc3.NewVM(program, nil, output)
-		assertError(t, err, nil)
+		assert.NoError(t, err)
 
 		// LEA R0, x3002
 		err = vm.Step()
-		assertError(t, err, nil)
+		assert.NoError(t, err)
 
 		// PUTS (R0 == x3002 == "H\0")
 		err = vm.Step()
-		assertError(t, err, nil)
-		assertRegister(t, vm, lc3.RegisterPC, 0x3002)
+		assert.NoError(t, err)
+		assert.Equal(t, uint16(0x3002), vm.GetRegister(lc3.RegisterPC))
 
-		assertString(t, "A", output.String())
+		assert.Equal(t, "A", output.String())
+	})
+
+	t.Run("test PUTS trap with invalid character", func(t *testing.T) {
+		program := strings.NewReader("\x30\x00\xE0\x01\xf0\x22\x00\x41\x01\x00") // LEA R0, x3002; PUTS; 'A', 0x0100 (invalid)
+
+		output := bytes.NewBuffer([]byte{})
+		vm, err := lc3.NewVM(program, nil, output)
+		assert.NoError(t, err)
+
+		// LEA R0, x3002
+		err = vm.Step()
+		assert.NoError(t, err)
+
+		// PUTS (R0 == x3002 == "A", 0x0100)
+		err = vm.Step()
+		assert.Error(t, err) // Expect an error due to invalid character
 	})
 
 	t.Run("test HALT trap", func(t *testing.T) {
 		program := strings.NewReader("\x30\x00\xf0\x25\x00\x00")
 
 		vm, err := lc3.NewVM(program, nil, nil)
-		assertError(t, err, nil)
+		assert.NoError(t, err)
 
 		err = vm.Step()
-		assertError(t, err, nil)
-		assertState(t, vm.State(), lc3.StateHalted)
-		assertRegister(t, vm, lc3.RegisterPC, 0x3001)
+		assert.NoError(t, err)
+		assert.Equal(t, lc3.StateHalted, vm.State())
+		assert.Equal(t, uint16(0x3001), vm.GetRegister(lc3.RegisterPC))
 
 		// Can't step further
 		err = vm.Step()
-		assertIsError(t, err)
-		assertRegister(t, vm, lc3.RegisterPC, 0x3001)
+		assert.Error(t, err)
+		assert.Equal(t, uint16(0x3001), vm.GetRegister(lc3.RegisterPC))
 	})
 
 	t.Run("test GETC trap", func(t *testing.T) {
@@ -200,15 +231,15 @@ func TestVM(t *testing.T) {
 		input := strings.NewReader(string(want))
 
 		vm, err := lc3.NewVM(program, input, nil)
-		assertError(t, err, nil)
+		assert.NoError(t, err)
 		// To make sure that top bytes are also cleared.
 		vm.SetRegister(lc3.RegisterR0, 0x1234)
 
 		err = vm.Step()
-		assertError(t, err, nil)
-		assertState(t, vm.State(), lc3.StateRunning)
-		assertRegister(t, vm, lc3.RegisterPC, 0x3001)
-		assertRegister(t, vm, lc3.RegisterR0, uint16(want))
+		assert.NoError(t, err)
+		assert.Equal(t, lc3.StateRunning, vm.State())
+		assert.Equal(t, uint16(0x3001), vm.GetRegister(lc3.RegisterPC))
+		assert.Equal(t, uint16(want), vm.GetRegister(lc3.RegisterR0))
 	})
 
 	t.Run("test OUT trap", func(t *testing.T) {
@@ -217,12 +248,12 @@ func TestVM(t *testing.T) {
 
 		output := bytes.NewBuffer([]byte{})
 		vm, err := lc3.NewVM(program, nil, output)
-		assertError(t, err, nil)
+		assert.NoError(t, err)
 		vm.SetRegister(lc3.RegisterR0, uint16(want))
 
 		err = vm.Step()
-		assertError(t, err, nil)
-		assertString(t, output.String(), string([]byte{0x41}))
+		assert.NoError(t, err)
+		assert.Equal(t, string([]byte{0x41}), output.String())
 	})
 
 	t.Run("execute hello-world.obj program", func(t *testing.T) {
@@ -231,28 +262,30 @@ func TestVM(t *testing.T) {
 
 		output := bytes.NewBuffer([]byte{})
 		vm, err := lc3.NewVM(f, nil, output)
-		assertError(t, err, nil)
+		assert.NoError(t, err)
 
 		var start uint16 = 0x3000
 		values := []uint16{0xe002, 0xf022, 0xf025, 0x0048,
 			0x0065, 0x006c, 0x006c, 0x006f,
 			0x0020, 0x0057, 0x006f, 0x0072,
 			0x006c, 0x0064, 0x0021, 0x0000}
-		assertRegister(t, vm, lc3.RegisterPC, start)
+		assert.Equal(t, start, vm.GetRegister(lc3.RegisterPC))
 		for i, value := range values {
-			assertMemory(t, vm, start+uint16(i), value)
+			val, err := vm.GetMemory(start + uint16(i))
+			assert.NoError(t, err)
+			assert.Equal(t, value, val)
 		}
 
 		// LEA R0, HELLO_STR
 		// PUTS
 		// HALT
 		err = vm.Run()
-		assertError(t, err, nil)
-		assertRegister(t, vm, lc3.RegisterPC, start+3)
-		assertRegister(t, vm, lc3.RegisterR0, 0x3003)
-		assertRegister(t, vm, lc3.RegisterCOND, lc3.FlagP)
-		assertString(t, "Hello World!", output.String())
-		assertState(t, vm.State(), lc3.StateHalted)
+		assert.NoError(t, err)
+		assert.Equal(t, uint16(0x3003), vm.GetRegister(lc3.RegisterPC))
+		assert.Equal(t, uint16(0x3003), vm.GetRegister(lc3.RegisterR0))
+		assert.Equal(t, lc3.FlagP, vm.GetRegister(lc3.RegisterCOND))
+		assert.Equal(t, "Hello World!", output.String())
+		assert.Equal(t, lc3.StateHalted, vm.State())
 	})
 
 	t.Run("execute loop.obj program", func(t *testing.T) {
@@ -260,15 +293,15 @@ func TestVM(t *testing.T) {
 		defer closer()
 
 		vm, err := lc3.NewVM(f, nil, nil)
-		assertError(t, err, nil)
+		assert.NoError(t, err)
 
 		err = vm.Run()
-		assertError(t, err, nil)
-		assertRegister(t, vm, lc3.RegisterPC, 0x3005)
-		assertRegister(t, vm, lc3.RegisterR0, 10)
-		assertRegister(t, vm, lc3.RegisterR1, 0)
-		assertRegister(t, vm, lc3.RegisterCOND, lc3.FlagZ)
-		assertState(t, vm.State(), lc3.StateHalted)
+		assert.NoError(t, err)
+		assert.Equal(t, uint16(0x3005), vm.GetRegister(lc3.RegisterPC))
+		assert.Equal(t, uint16(10), vm.GetRegister(lc3.RegisterR0))
+		assert.Equal(t, uint16(0), vm.GetRegister(lc3.RegisterR1))
+		assert.Equal(t, lc3.FlagZ, vm.GetRegister(lc3.RegisterCOND))
+		assert.Equal(t, lc3.StateHalted, vm.State())
 	})
 
 	t.Run("execute reverse-string.obj program", func(t *testing.T) {
@@ -277,12 +310,12 @@ func TestVM(t *testing.T) {
 
 		output := bytes.NewBuffer([]byte{})
 		vm, err := lc3.NewVM(f, nil, output)
-		assertError(t, err, nil)
+		assert.NoError(t, err)
 
 		err = vm.Run()
-		assertError(t, err, nil)
-		assertString(t, "4321DCBA", output.String())
-		assertState(t, vm.State(), lc3.StateHalted)
+		assert.NoError(t, err)
+		assert.Equal(t, "4321DCBA", output.String())
+		assert.Equal(t, lc3.StateHalted, vm.State())
 	})
 
 	t.Run("test KBSR/KBDR memory registers", func(t *testing.T) {
@@ -291,67 +324,40 @@ func TestVM(t *testing.T) {
 		input := strings.NewReader(string(want))
 
 		vm, err := lc3.NewVM(program, input, nil)
-		assertError(t, err, nil)
+		assert.NoError(t, err)
 
 		// On memory read, KBSR highest-bit is set, KBDR contains wanted character.
-		assertMemory(t, vm, lc3.MemoryKBSR, 0x8000)
-		assertMemory(t, vm, lc3.MemoryKBDR, uint16(want))
+		val, err := vm.GetMemory(lc3.MemoryKBSR)
+		assert.NoError(t, err)
+		assert.Equal(t, uint16(0x8000), val)
+		val, err = vm.GetMemory(lc3.MemoryKBDR)
+		assert.NoError(t, err)
+		assert.Equal(t, uint16(want), val)
 		// Nothing more to read.
-		assertMemory(t, vm, lc3.MemoryKBSR, 0x0000)
+		val, err = vm.GetMemory(lc3.MemoryKBSR)
+		assert.NoError(t, err)
+		assert.Equal(t, uint16(0x0000), val)
 	})
 }
 
 func assertInitVM(t *testing.T, vm *lc3.VM, pc uint16) {
 	t.Helper()
 
-	assertState(t, vm.State(), lc3.StateRunning)
+	assert.Equal(t, lc3.StateRunning, vm.State())
 	for i := 0; i < lc3.MemorySize; i++ {
-		assertMemory(t, vm, uint16(i), 0)
+		val, err := vm.GetMemory(uint16(i))
+		assert.NoError(t, err)
+		assert.Equal(t, uint16(0), val)
 	}
 
 	for reg := lc3.RegisterR0; reg < lc3.RegisterCOUNT; reg++ {
 		if reg == lc3.RegisterPC {
-			assertRegister(t, vm, reg, pc)
+			assert.Equal(t, pc, vm.GetRegister(reg))
 		} else if reg == lc3.RegisterCOND {
-			assertRegister(t, vm, reg, lc3.FlagZ)
+			assert.Equal(t, lc3.FlagZ, vm.GetRegister(reg))
 		} else {
-			assertRegister(t, vm, reg, 0)
+			assert.Equal(t, uint16(0), vm.GetRegister(reg))
 		}
-	}
-}
-
-func assertError(t *testing.T, got, want error) {
-	t.Helper()
-
-	if got != want {
-		t.Fatalf("expected error %+v, got %+v", want, got)
-	}
-}
-
-func assertIsError(t *testing.T, err error) {
-	t.Helper()
-
-	if err == nil {
-		t.Fatalf("expected error, got none")
-	}
-}
-
-func assertRegister(t *testing.T, vm *lc3.VM, reg lc3.Register, want uint16) {
-	t.Helper()
-
-	got := vm.GetRegister(reg)
-	if got != want {
-		t.Fatalf("expected register %q value to be 0x%x, got 0x%x", reg, want, got)
-	}
-}
-
-func assertMemory(t *testing.T, vm *lc3.VM, address, want uint16) {
-	t.Helper()
-
-	got, err := vm.GetMemory(address)
-	assertError(t, err, nil)
-	if got != want {
-		t.Fatalf("expected memory at 0x%x to have 0x%x, got 0x%x", address, want, got)
 	}
 }
 
@@ -359,23 +365,7 @@ func openTestfile(t *testing.T, name string) (*os.File, func() error) {
 	t.Helper()
 
 	f, err := os.Open(name)
-	assertError(t, err, nil)
+	assert.NoError(t, err)
 
 	return f, f.Close
-}
-
-func assertString(t *testing.T, want, got string) {
-	t.Helper()
-
-	if want != got {
-		t.Fatalf("expected output to be %q, got %q", want, got)
-	}
-}
-
-func assertState(t *testing.T, want uint8, got uint8) {
-	t.Helper()
-
-	if want != got {
-		t.Fatalf("expected vm state to be %d, got %d", want, got)
-	}
 }
