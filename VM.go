@@ -190,51 +190,12 @@ func (v *VM) execInstruction() error {
 	}
 	op := uint8((inst & 0xf000) >> 12)
 
-	switch op {
-	case OperationADD:
-		v.execAdd(inst)
-	case OperationAND:
-		v.execAnd(inst)
-	case OperationBR:
-		v.execBreak(inst)
-	case OperationJMP:
-		v.execJump(inst)
-	case OperationJSR:
-		v.execJumpSubroutine(inst)
-	case OperationLD:
-		if err := v.execLoad(inst, false); err != nil {
+	if exec, ok := instructions[op]; ok {
+		if err := exec(v, inst); err != nil {
 			return err
 		}
-	case OperationLDI:
-		if err := v.execLoad(inst, true); err != nil {
-			return err
-		}
-	case OperationLDR:
-		if err := v.execLoadRegister(inst); err != nil {
-			return err
-		}
-	case OperationLEA:
-		v.execLoadEffectiveAddress(inst)
-	case OperationNOT:
-		v.execNot(inst)
-	case OperationST:
-		if err := v.execStore(inst, false); err != nil {
-			return err
-		}
-	case OperationSTI:
-		if err := v.execStore(inst, true); err != nil {
-			return err
-		}
-	case OperationSTR:
-		if err := v.execStoreRegister(inst); err != nil {
-			return err
-		}
-	case OperationRTI, OperationRES:
+	} else {
 		return fmt.Errorf("Operation %q not implemented", opNames[op])
-	case OperationTRAP:
-		if err := v.execTrap(inst); err != nil {
-			return err
-		}
 	}
 
 	if doIncrementPC(op) {
@@ -261,23 +222,6 @@ func (v *VM) updateFlags(reg Register) {
 
 func (v *VM) SetRegister(reg Register, value uint16) {
 	v.registers[reg] = value
-}
-
-func (v *VM) execAdd(inst uint16) {
-	destination := Register((inst >> 9) & 0x7)
-	source1 := Register((inst >> 6) & 0x7)
-
-	var value uint16
-	if inst&0x0020 == 0 {
-		source2 := Register(inst & 0x7)
-
-		value = v.GetRegister(source2)
-	} else {
-		value = signExtend(inst, 5)
-	}
-
-	v.SetRegister(destination, v.GetRegister(source1)+value)
-	v.updateFlags(destination)
 }
 
 func (v *VM) execAnd(inst uint16) {
@@ -390,69 +334,6 @@ func (v *VM) execTrap(inst uint16) error {
 		v.trapHalt()
 	default:
 		return fmt.Errorf("trap 0x%x not implemented", trap)
-	}
-	return nil
-}
-
-func (v *VM) peekChar() bool {
-	// XXX: Blocks.
-	_, err := v.input.Peek(1)
-	return err == nil
-}
-
-func (v *VM) trapGetc() error {
-	char, err := v.getChar()
-	if err != nil {
-		return fmt.Errorf("couldn't read input: %v", err)
-	}
-	v.SetRegister(RegisterR0, uint16(char))
-	return nil
-}
-
-func (v *VM) getChar() (byte, error) {
-	char := make([]byte, 1)
-	n, err := v.input.Read(char)
-	if n == 0 || err != nil {
-		return 0, err
-	}
-	return char[0], nil
-}
-
-func (v *VM) trapOut() error {
-	char := v.GetRegister(RegisterR0) & 0xff
-	if _, err := v.output.Write([]byte{byte(char)}); err != nil {
-		return fmt.Errorf("couldn't write output %c: %v", char, err)
-	}
-	return nil
-}
-
-func (v *VM) trapHalt() {
-	v.state = StateHalted
-}
-
-func (v *VM) trapPuts() error {
-	address := v.GetRegister(RegisterR0)
-
-	var out []byte
-	for {
-		// XXX: Validate that value is less or equal to 0xff too.
-		value, err := v.GetMemory(address)
-		if err != nil {
-			return err
-		}
-		if value == 0 {
-			break
-		}
-
-		out = append(out, byte(value))
-		if address == UserMemoryLimit {
-			break
-		}
-		address++
-	}
-
-	if _, err := v.output.Write(out); err != nil {
-		return fmt.Errorf("Couldn't write output %v: %v", out, err)
 	}
 	return nil
 }
