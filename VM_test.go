@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"lc3"
+	lc3 "github.com/kroosec/lc3vm-go"
 )
 
 func TestVM(t *testing.T) {
@@ -57,50 +57,50 @@ func TestVM(t *testing.T) {
 			value       uint16
 			flag        uint16
 		}{
-			{"NOP", "\x00\x00", 1, lc3.RegisterPC, 0x3001, lc3.Flag_Z},
+			{"NOP", "\x00\x00", 1, lc3.RegisterPC, 0x3001, lc3.FlagZ},
 
-			{"BRp x3001", "\x02\x12", 1, lc3.RegisterPC, 0x3001, lc3.Flag_Z},
-			{"BRz x3013", "\x04\x12", 1, lc3.RegisterPC, 0x3013, lc3.Flag_Z},
-			{"BRzp x3008", "\x06\x07", 1, lc3.RegisterPC, 0x3008, lc3.Flag_Z},
+			{"BRp x3001", "\x02\x12", 1, lc3.RegisterPC, 0x3001, lc3.FlagZ},
+			{"BRz x3013", "\x04\x12", 1, lc3.RegisterPC, 0x3013, lc3.FlagZ},
+			{"BRzp x3008", "\x06\x07", 1, lc3.RegisterPC, 0x3008, lc3.FlagZ},
 
-			{"BRz x2f03", "\x05\x02", 1, lc3.RegisterPC, 0x2f03, lc3.Flag_Z},
-			{"BRn x2f34", "\x09\x33", 1, lc3.RegisterPC, 0x3001, lc3.Flag_Z},
+			{"BRz x2f03", "\x05\x02", 1, lc3.RegisterPC, 0x2f03, lc3.FlagZ},
+			{"BRn x2f34", "\x09\x33", 1, lc3.RegisterPC, 0x3001, lc3.FlagZ},
 
-			{"LEA R0, x3003", "\xE0\x02", 1, lc3.RegisterR0, 0x3003, lc3.Flag_P},
-			{"LEA R1, x2F35", "\xE3\x34", 1, lc3.RegisterR1, 0x2F35, lc3.Flag_P},
-			{"LEA R7, x3001", "\xEE\x00", 1, lc3.RegisterR7, 0x3001, lc3.Flag_P},
+			{"LEA R0, x3003", "\xE0\x02", 1, lc3.RegisterR0, 0x3003, lc3.FlagP},
+			{"LEA R1, x2F35", "\xE3\x34", 1, lc3.RegisterR1, 0x2F35, lc3.FlagP},
+			{"LEA R7, x3001", "\xEE\x00", 1, lc3.RegisterR7, 0x3001, lc3.FlagP},
 
-			{"NOT R0, R0", "\x90\x3f", 1, lc3.RegisterR0, 0xffff, lc3.Flag_N},
-			{"LEA R3, x3039 + NOT R3, R1", "\xE6\x38\x96\xFF", 2, lc3.RegisterR3, 0xCFC6, lc3.Flag_N},
+			{"NOT R0, R0", "\x90\x3f", 1, lc3.RegisterR0, 0xffff, lc3.FlagN},
+			{"LEA R3, x3039 + NOT R3, R1", "\xE6\x38\x96\xFF", 2, lc3.RegisterR3, 0xCFC6, lc3.FlagN},
 
-			{"ADD R0, R0, R0", "\x10\x00", 1, lc3.RegisterR0, 0x0000, lc3.Flag_Z},
-			{"ADD R0, R0, #0", "\x10\x20", 1, lc3.RegisterR0, 0x0000, lc3.Flag_Z},
-			{"ADD R3, R2, #5", "\x16\x25", 1, lc3.RegisterR3, 0x0005, lc3.Flag_P},
-			{"ADD R5, R4, #-11", "\x1B\x35", 1, lc3.RegisterR5, 0xfff5, lc3.Flag_N},
-			{"ADD R7, R0, #-14 + ADD R3, R0, R7", "\x1E\x32\x16\x07", 2, lc3.RegisterR3, 0xfff2, lc3.Flag_N},
+			{"ADD R0, R0, R0", "\x10\x00", 1, lc3.RegisterR0, 0x0000, lc3.FlagZ},
+			{"ADD R0, R0, #0", "\x10\x20", 1, lc3.RegisterR0, 0x0000, lc3.FlagZ},
+			{"ADD R3, R2, #5", "\x16\x25", 1, lc3.RegisterR3, 0x0005, lc3.FlagP},
+			{"ADD R5, R4, #-11", "\x1B\x35", 1, lc3.RegisterR5, 0xfff5, lc3.FlagN},
+			{"ADD R7, R0, #-14 + ADD R3, R0, R7", "\x1E\x32\x16\x07", 2, lc3.RegisterR3, 0xfff2, lc3.FlagN},
 
-			{"AND R0, R0, R0", "\x50\x00", 1, lc3.RegisterR0, 0x0000, lc3.Flag_Z},
-			{"AND R3, R7, #-22", "\x57\xEA", 1, lc3.RegisterR3, 0x0000, lc3.Flag_Z},
-			{"ADD R7, R0, #-14 + AND R3, R7, R7", "\x1E\x32\x57\xC7", 2, lc3.RegisterR3, 0xfff2, lc3.Flag_N},
+			{"AND R0, R0, R0", "\x50\x00", 1, lc3.RegisterR0, 0x0000, lc3.FlagZ},
+			{"AND R3, R7, #-22", "\x57\xEA", 1, lc3.RegisterR3, 0x0000, lc3.FlagZ},
+			{"ADD R7, R0, #-14 + AND R3, R7, R7", "\x1E\x32\x57\xC7", 2, lc3.RegisterR3, 0xfff2, lc3.FlagN},
 
-			{"JMP R3", "\xC0\x00", 1, lc3.RegisterPC, 0x0000, lc3.Flag_Z},
-			{"RET (JMP R7)", "\xC1\xC0", 1, lc3.RegisterPC, 0x0000, lc3.Flag_Z},
-			{"ADD R5 R4 #-15 + JMP R5", "\x1B\x31\xC1\x40", 2, lc3.RegisterPC, 0xfff1, lc3.Flag_N},
+			{"JMP R3", "\xC0\x00", 1, lc3.RegisterPC, 0x0000, lc3.FlagZ},
+			{"RET (JMP R7)", "\xC1\xC0", 1, lc3.RegisterPC, 0x0000, lc3.FlagZ},
+			{"ADD R5 R4 #-15 + JMP R5", "\x1B\x31\xC1\x40", 2, lc3.RegisterPC, 0xfff1, lc3.FlagN},
 
-			{"JSR x3001", "\x48\x00", 1, lc3.RegisterPC, 0x3001, lc3.Flag_Z},
-			{"JSRR R0; check R7", "\x40\x00", 1, lc3.RegisterR7, 0x3001, lc3.Flag_Z},
-			{"JSRR R0; check PC", "\x40\x00", 1, lc3.RegisterPC, 0x0000, lc3.Flag_Z},
-			{"ADD R3, R3, #14 + JSRR R3", "\x16\xEE\x40\xC0", 2, lc3.RegisterPC, 0x000E, lc3.Flag_P},
+			{"JSR x3001", "\x48\x00", 1, lc3.RegisterPC, 0x3001, lc3.FlagZ},
+			{"JSRR R0; check R7", "\x40\x00", 1, lc3.RegisterR7, 0x3001, lc3.FlagZ},
+			{"JSRR R0; check PC", "\x40\x00", 1, lc3.RegisterPC, 0x0000, lc3.FlagZ},
+			{"ADD R3, R3, #14 + JSRR R3", "\x16\xEE\x40\xC0", 2, lc3.RegisterPC, 0x000E, lc3.FlagP},
 
-			{"LD R0, x3001", "\x20\x00", 1, lc3.RegisterR0, 0x0000, lc3.Flag_Z},
-			{"LD R5, x3003", "\x2A\x02\x00\x00\x00\x00\x01\x23", 1, lc3.RegisterR5, 0x0123, lc3.Flag_P},
-			{"LD R0, x2F06", "\x21\x05", 1, lc3.RegisterR0, 0x1234, lc3.Flag_P},
+			{"LD R0, x3001", "\x20\x00", 1, lc3.RegisterR0, 0x0000, lc3.FlagZ},
+			{"LD R5, x3003", "\x2A\x02\x00\x00\x00\x00\x01\x23", 1, lc3.RegisterR5, 0x0123, lc3.FlagP},
+			{"LD R0, x2F06", "\x21\x05", 1, lc3.RegisterR0, 0x1234, lc3.FlagP},
 
-			{"LDI R6, x3001", "\xA6\x00\x00\x00", 1, lc3.RegisterR3, 0x0000, lc3.Flag_Z},
-			{"LDI R8, x3002", "\xA8\x01\x00\x15\x30\x01", 1, lc3.RegisterR4, 0x0015, lc3.Flag_P},
+			{"LDI R6, x3001", "\xA6\x00\x00\x00", 1, lc3.RegisterR3, 0x0000, lc3.FlagZ},
+			{"LDI R8, x3002", "\xA8\x01\x00\x15\x30\x01", 1, lc3.RegisterR4, 0x0015, lc3.FlagP},
 
-			{"LDR R0, R0, #0", "\x60\x00", 1, lc3.RegisterR0, 0x0000, lc3.Flag_Z},
-			{"LEA R1, x3002 + LDR R4, R1, #1", "\xE2\x01\x68\x41\x00\x00\xFF\xFF", 2, lc3.RegisterR4, 0xFFFF, lc3.Flag_N},
+			{"LDR R0, R0, #0", "\x60\x00", 1, lc3.RegisterR0, 0x0000, lc3.FlagZ},
+			{"LEA R1, x3002 + LDR R4, R1, #1", "\xE2\x01\x68\x41\x00\x00\xFF\xFF", 2, lc3.RegisterR4, 0xFFFF, lc3.FlagN},
 		}
 
 		for _, test := range testCases {
@@ -130,14 +130,14 @@ func TestVM(t *testing.T) {
 			value       uint16
 			flag        uint16
 		}{
-			{"NOP + ST R2, x3006", "\x00\x00\x34\x05", 0x3006, 0x0, lc3.Flag_Z},
-			{"ADD R5 R4 #-14 + ST R5, x3006", "\x1B\x32\x3A\x40", 0x3042, 0xFFF2, lc3.Flag_N},
+			{"NOP + ST R2, x3006", "\x00\x00\x34\x05", 0x3006, 0x0, lc3.FlagZ},
+			{"ADD R5 R4 #-14 + ST R5, x3006", "\x1B\x32\x3A\x40", 0x3042, 0xFFF2, lc3.FlagN},
 
-			{"NOP + STI R0, x3002", "\x00\x00\xB0\x00", 0x0000, 0x0, lc3.Flag_Z},
-			{"ADD R7, R4, #-1 + STI R7, x3003", "\x1F\x3F\xBE\x01\x00\x00\x12\x34", 0x1234, 0xFFFF, lc3.Flag_N},
+			{"NOP + STI R0, x3002", "\x00\x00\xB0\x00", 0x0000, 0x0, lc3.FlagZ},
+			{"ADD R7, R4, #-1 + STI R7, x3003", "\x1F\x3F\xBE\x01\x00\x00\x12\x34", 0x1234, 0xFFFF, lc3.FlagN},
 
-			{"NOP + STR R0, R0, #0", "\x00\x00\x70\x00", 0x0000, 0x0, lc3.Flag_Z},
-			{"ADD R7, R4, #8 + STR R7, R0, #1", "\x1F\x28\x7E\x12", 0x0012, 0x0008, lc3.Flag_P},
+			{"NOP + STR R0, R0, #0", "\x00\x00\x70\x00", 0x0000, 0x0, lc3.FlagZ},
+			{"ADD R7, R4, #8 + STR R7, R0, #1", "\x1F\x28\x7E\x12", 0x0012, 0x0008, lc3.FlagP},
 		}
 
 		for _, test := range testCases {
@@ -250,7 +250,7 @@ func TestVM(t *testing.T) {
 		assertError(t, err, nil)
 		assertRegister(t, vm, lc3.RegisterPC, start+3)
 		assertRegister(t, vm, lc3.RegisterR0, 0x3003)
-		assertRegister(t, vm, lc3.RegisterCOND, lc3.Flag_P)
+		assertRegister(t, vm, lc3.RegisterCOND, lc3.FlagP)
 		assertString(t, "Hello World!", output.String())
 		assertState(t, vm.State(), lc3.StateHalted)
 	})
@@ -267,7 +267,7 @@ func TestVM(t *testing.T) {
 		assertRegister(t, vm, lc3.RegisterPC, 0x3005)
 		assertRegister(t, vm, lc3.RegisterR0, 10)
 		assertRegister(t, vm, lc3.RegisterR1, 0)
-		assertRegister(t, vm, lc3.RegisterCOND, lc3.Flag_Z)
+		assertRegister(t, vm, lc3.RegisterCOND, lc3.FlagZ)
 		assertState(t, vm.State(), lc3.StateHalted)
 	})
 
@@ -313,7 +313,7 @@ func assertInitVM(t *testing.T, vm *lc3.VM, pc uint16) {
 		if reg == lc3.RegisterPC {
 			assertRegister(t, vm, reg, pc)
 		} else if reg == lc3.RegisterCOND {
-			assertRegister(t, vm, reg, lc3.Flag_Z)
+			assertRegister(t, vm, reg, lc3.FlagZ)
 		} else {
 			assertRegister(t, vm, reg, 0)
 		}

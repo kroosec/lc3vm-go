@@ -91,16 +91,16 @@ var opNames map[uint8]string = map[uint8]string{
 }
 
 const (
-	Flag_P = uint16(1 << 0)
-	Flag_Z = uint16(1 << 1)
-	Flag_N = uint16(1 << 2)
+	FlagP = uint16(1 << 0)
+	FlagZ = uint16(1 << 1)
+	FlagN = uint16(1 << 2)
 )
 
 const (
-	Trap_GETC = uint8(0x20)
-	Trap_OUT  = uint8(0x21)
-	Trap_PUTS = uint8(0x22)
-	Trap_HALT = uint8(0x25)
+	TrapGETC = uint8(0x20)
+	TrapOUT  = uint8(0x21)
+	TrapPUTS = uint8(0x22)
+	TrapHALT = uint8(0x25)
 )
 
 const (
@@ -157,7 +157,7 @@ func NewVM(program io.Reader, input io.Reader, output io.Writer) (*VM, error) {
 		return nil, err
 	}
 
-	vm.registers[RegisterCOND] = Flag_Z
+	vm.registers[RegisterCOND] = FlagZ
 
 	return vm, nil
 }
@@ -250,11 +250,11 @@ func doIncrementPC(op uint8) bool {
 func (v *VM) updateFlags(reg Register) {
 	value := v.GetRegister(reg)
 
-	flags := Flag_P
+	flags := FlagP
 	if value == 0 {
-		flags = Flag_Z
+		flags = FlagZ
 	} else if value>>15 == 1 {
-		flags = Flag_N
+		flags = FlagN
 	}
 	v.SetRegister(RegisterCOND, flags)
 }
@@ -374,22 +374,22 @@ func (v *VM) execTrap(inst uint16) error {
 	trap := uint8(inst & 0x00ff)
 
 	switch trap {
-	case Trap_GETC:
+	case TrapGETC:
 		if err := v.trapGetc(); err != nil {
 			return err
 		}
-	case Trap_OUT:
+	case TrapOUT:
 		if err := v.trapOut(); err != nil {
 			return err
 		}
-	case Trap_PUTS:
+	case TrapPUTS:
 		if err := v.trapPuts(); err != nil {
 			return err
 		}
-	case Trap_HALT:
+	case TrapHALT:
 		v.trapHalt()
 	default:
-		return fmt.Errorf("Trap 0x%x not implemented", trap)
+		return fmt.Errorf("trap 0x%x not implemented", trap)
 	}
 	return nil
 }
@@ -403,7 +403,7 @@ func (v *VM) peekChar() bool {
 func (v *VM) trapGetc() error {
 	char, err := v.getChar()
 	if err != nil {
-		return fmt.Errorf("Couldn't read input: %v", err)
+		return fmt.Errorf("couldn't read input: %v", err)
 	}
 	v.SetRegister(RegisterR0, uint16(char))
 	return nil
@@ -421,7 +421,7 @@ func (v *VM) getChar() (byte, error) {
 func (v *VM) trapOut() error {
 	char := v.GetRegister(RegisterR0) & 0xff
 	if _, err := v.output.Write([]byte{byte(char)}); err != nil {
-		return fmt.Errorf("Couldn't write output %c: %v", char, err)
+		return fmt.Errorf("couldn't write output %c: %v", char, err)
 	}
 	return nil
 }
